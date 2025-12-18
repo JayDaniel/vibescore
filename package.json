@@ -1,0 +1,23 @@
+{
+  "name": "@vibescore/tracker",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Codex CLI token usage tracker (macOS-first, notify-driven).",
+  "license": "MIT",
+  "type": "commonjs",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "smoke": "node scripts/smoke/insforge-smoke.cjs",
+    "dashboard:dev": "npm --prefix dashboard run dev",
+    "dashboard:build": "npm --prefix dashboard run build",
+    "dashboard:preview": "npm --prefix dashboard run preview",
+    "dev:shim": "node scripts/dev-bin-shim.cjs"
+  },
+  "bin": {
+    "tracker": "bin/tracker.js",
+    "vibescore-tracker": "bin/tracker.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

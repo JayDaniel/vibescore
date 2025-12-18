@@ -1,0 +1,93 @@
+const os = require('node:os');
+const path = require('node:path');
+const fs = require('node:fs/promises');
+
+const { readJson } = require('../lib/fs');
+const { readCodexNotify } = require('../lib/codex-config');
+const { normalizeState: normalizeUploadState } = require('../lib/upload-throttle');
+
+async function cmdStatus() {
+  const home = os.homedir();
+  const trackerDir = path.join(home, '.vibescore', 'tracker');
+  const configPath = path.join(trackerDir, 'config.json');
+  const queuePath = path.join(trackerDir, 'queue.jsonl');
+  const queueStatePath = path.join(trackerDir, 'queue.state.json');
+  const cursorsPath = path.join(trackerDir, 'cursors.json');
+  const notifySignalPath = path.join(trackerDir, 'notify.signal');
+  const throttlePath = path.join(trackerDir, 'sync.throttle');
+  const uploadThrottlePath = path.join(trackerDir, 'upload.throttle.json');
+  const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
+  const codexConfigPath = path.join(codexHome, 'config.toml');
+
+  const config = await readJson(configPath);
+  const cursors = await readJson(cursorsPath);
+  const queueState = (await readJson(queueStatePath)) || { offset: 0 };
+  const uploadThrottle = normalizeUploadState(await readJson(uploadThrottlePath));
+
+  const queueSize = await safeStatSize(queuePath);
+  const pendingBytes = Math.max(0, queueSize - (queueState.offset || 0));
+
+  const lastNotify = (await safeReadText(notifySignalPath))?.trim() || null;
+  const lastNotifySpawn = parseEpochMsToIso((await safeReadText(throttlePath))?.trim() || null);
+
+  const codexNotify = await readCodexNotify(codexConfigPath);
+  const notifyConfigured = Array.isArray(codexNotify) && codexNotify.length > 0;
+
+  const lastUpload = uploadThrottle.lastSuccessMs
+    ? parseEpochMsToIso(uploadThrottle.lastSuccessMs)
+    : typeof queueState.updatedAt === 'string'
+      ? queueState.updatedAt
+      : null;
+  const nextUpload = parseEpochMsToIso(uploadThrottle.nextAllowedAtMs || null);
+  const backoffUntil = parseEpochMsToIso(uploadThrottle.backoffUntilMs || null);
+  const lastUploadError = uploadThrottle.lastError
+    ? `${uploadThrottle.lastErrorAt || 'unknown'} ${uploadThrottle.lastError}`
+    : null;
+
+  process.stdout.write(
+    [
+      'Status:',
+      `- Base URL: ${config?.baseUrl || 'unset'}`,
+      `- Device token: ${config?.deviceToken ? 'set' : 'unset'}`,
+      `- Queue: ${pendingBytes} bytes pending`,
+      `- Last parse: ${cursors?.updatedAt || 'never'}`,
+      `- Last notify: ${lastNotify || 'never'}`,
+      `- Last notify-triggered sync: ${lastNotifySpawn || 'never'}`,
+      `- Last upload: ${lastUpload || 'never'}`,
+      `- Next upload after: ${nextUpload || 'never'}`,
+      `- Backoff until: ${backoffUntil || 'never'}`,
+      lastUploadError ? `- Last upload error: ${lastUploadError}` : null,
+      `- Codex notify: ${notifyConfigured ? JSON.stringify(codexNotify) : 'unset'}`,
+      ''
+    ]
+      .filter(Boolean)
+      .join('\n')
+  );
+}
+
+async function safeStatSize(p) {
+  try {
+    const st = await fs.stat(p);
+    return st.size || 0;
+  } catch (_e) {
+    return 0;
+  }
+}
+
+async function safeReadText(p) {
+  try {
+    return await fs.readFile(p, 'utf8');
+  } catch (_e) {
+    return null;
+  }
+}
+
+function parseEpochMsToIso(v) {
+  const ms = Number(v);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const d = new Date(ms);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toISOString();
+}
+
+module.exports = { cmdStatus };

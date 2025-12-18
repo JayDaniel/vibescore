@@ -1,0 +1,382 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+
+  /* Retro TUI theme tokens (visual only). */
+  --bg: #010704;
+  --panel: rgba(0, 12, 6, 0.88);
+  --panel-solid: #020f08;
+  --fg: #dcffe8;
+  --muted: rgba(220, 255, 232, 0.72);
+
+  --accent: #00ff6a;
+  --accent-dim: rgba(0, 255, 106, 0.14);
+  --border: rgba(0, 255, 106, 0.5);
+  --border-dim: rgba(0, 255, 106, 0.22);
+
+  --glow: rgba(0, 255, 106, 0.28);
+  --error: #ff6b6b;
+}
+
+::selection {
+  background: rgba(0, 255, 106, 0.25);
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(1200px 800px at 12% 0%, rgba(0, 255, 106, 0.1), transparent 60%),
+    radial-gradient(900px 600px at 92% 10%, rgba(0, 255, 106, 0.06), transparent 55%),
+    radial-gradient(800px 520px at 60% 90%, rgba(0, 255, 106, 0.04), transparent 60%), var(--bg);
+  color: var(--fg);
+}
+
+a {
+  color: inherit;
+  text-decoration-color: rgba(0, 255, 106, 0.5);
+  text-underline-offset: 3px;
+}
+
+.tui-screen {
+  min-height: 100vh;
+  padding: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  position: relative;
+  isolation: isolate;
+}
+
+.tui-screen::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.18;
+  mix-blend-mode: overlay;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.02) 1px,
+    rgba(0, 0, 0, 0.18) 2px,
+    rgba(0, 0, 0, 0.18) 3px
+  );
+}
+
+.tui-screen::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.06;
+  background: radial-gradient(circle at 30% 20%, rgba(0, 255, 106, 0.25), transparent 60%),
+    radial-gradient(circle at 80% 0%, rgba(0, 255, 106, 0.16), transparent 55%);
+  animation: tui-flicker 2.6s infinite;
+}
+
+@keyframes tui-flicker {
+  0% {
+    opacity: 0.055;
+  }
+  50% {
+    opacity: 0.07;
+  }
+  100% {
+    opacity: 0.06;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tui-screen::after {
+    animation: none;
+  }
+}
+
+.tui-frame {
+  width: min(104ch, 100%);
+  background: var(--panel);
+  border: 2px solid var(--border);
+  box-shadow: 0 0 0 1px rgba(0, 255, 106, 0.1) inset, 0 0 42px rgba(0, 255, 106, 0.09),
+    0 18px 70px rgba(0, 0, 0, 0.7);
+  text-shadow: 0 0 12px rgba(0, 255, 106, 0.12);
+}
+
+.tui-header,
+.tui-footer {
+  padding: 10px 12px;
+  background: linear-gradient(180deg, rgba(0, 255, 106, 0.07), rgba(0, 0, 0, 0)) , var(--panel-solid);
+  border-bottom: 1px solid var(--border-dim);
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.tui-footer {
+  border-top: 1px solid var(--border-dim);
+  border-bottom: none;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.tui-title {
+  font-weight: 900;
+}
+
+.tui-spacer {
+  flex: 1;
+}
+
+.tui-body {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tui-window {
+  border: 1px solid var(--border-dim);
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.tui-window-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border-dim);
+  background: rgba(0, 255, 106, 0.06);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.tui-window-title {
+  font-weight: 900;
+}
+
+.tui-window-body {
+  padding: 10px;
+}
+
+.row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.btn {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--fg);
+  padding: 8px 10px;
+  border-radius: 0;
+  font-weight: 800;
+  text-decoration: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 0 0 1px rgba(0, 255, 106, 0.08) inset;
+}
+
+.btn::before {
+  content: '[';
+  color: var(--muted);
+}
+
+.btn::after {
+  content: ']';
+  color: var(--muted);
+}
+
+.btn.primary {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+
+.btn:hover {
+  background: rgba(0, 255, 106, 0.09);
+}
+
+.btn.primary:hover {
+  background: rgba(0, 255, 106, 0.22);
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 1px rgba(0, 255, 106, 0.22) inset, 0 0 0 3px rgba(0, 255, 106, 0.12);
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.metric {
+  padding: 10px;
+  border: 1px solid var(--border-dim);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.metric .label {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.metric .value {
+  font-size: 20px;
+  font-weight: 800;
+  margin-top: 6px;
+}
+
+input {
+  background: rgba(0, 0, 0, 0.25);
+  border: 1px solid var(--border-dim);
+  border-radius: 0;
+  color: var(--fg);
+  padding: 8px 10px;
+  font-family: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 255, 106, 0.12);
+}
+
+.tui-table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border-dim);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.tui-table-scroll:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tui-table-scroll table {
+  border: none;
+  min-width: 640px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--border-dim);
+  overflow: auto;
+}
+
+th,
+td {
+  padding: 10px 8px;
+  border-bottom: 1px solid rgba(0, 255, 106, 0.14);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+th:first-child,
+td:first-child {
+  text-align: left;
+}
+
+th {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.tui-th-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.tui-th-btn:hover {
+  color: var(--fg);
+}
+
+.tui-th-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.tui-sort-indicator {
+  display: inline-block;
+  width: 1ch;
+  color: rgba(0, 255, 106, 0.35);
+}
+
+.tui-sort-indicator.active {
+  color: var(--accent);
+}
+
+tbody tr:hover {
+  background: rgba(0, 255, 106, 0.06);
+}
+
+.tui-sparkline {
+  filter: drop-shadow(0 0 10px rgba(0, 255, 106, 0.18));
+}
+
+code {
+  background: rgba(0, 255, 106, 0.08);
+  border: 1px solid rgba(0, 255, 106, 0.18);
+  padding: 2px 6px;
+  border-radius: 0;
+  box-shadow: 0 0 0 1px rgba(0, 255, 106, 0.08) inset;
+}
+
+@media (max-width: 860px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 520px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .tui-screen {
+    padding: 10px;
+  }
+}
