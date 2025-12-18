@@ -91,6 +91,8 @@ Dashboard 当前已经具备“数据/状态/视图”分层的雏形（后续�
 
 这里有两条可行路线，需要先由你确认取舍（会显著影响实现速度与工程成本）：
 
+**Decision**：选择 **Option A（引入 Tailwind）**，最大化复用 `copy.jsx` 的 utility class。
+
 ### Option A（更快）：引入 Tailwind，最大化复用 `copy.jsx` 的 utility class
 
 **优点**

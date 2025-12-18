@@ -15,7 +15,7 @@
 
 ## 3) 模块清单与用户确认（范围控制）
 
-- [ ] 确认样式路线：A) 引入 Tailwind 复用 `copy.jsx` class，或 B) 语义化 class + theme CSS
+- [x] 确认样式路线：选择 A) 引入 Tailwind 复用 `copy.jsx` class
 - [ ] 输出“官网模块 vs copy 模块”对照表（含每块的数据接口需求）
 - [ ] 用户确认要纳入的 `copy.jsx` 可选模块与其接口字段（必要的澄清问答）
 
