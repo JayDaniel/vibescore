@@ -351,6 +351,11 @@ export function ActivityHeatmap({ heatmap }) {
     gap: `${CELL_GAP}px`,
   };
 
+  const contentWidth =
+    LABEL_WIDTH +
+    weeks.length * CELL_SIZE +
+    Math.max(0, weeks.length - 1) * CELL_GAP;
+
   return (
     <div className="flex flex-col gap-2">
       <div className="relative group">
@@ -360,7 +365,7 @@ export function ActivityHeatmap({ heatmap }) {
         {/* Scroll Container: Hide native scrollbar but allow scrolling */}
         <div
           ref={scrollRef}
-          className="overflow-x-scroll no-scrollbar select-none pb-2 outline-none"
+          className="w-full max-w-full overflow-x-scroll no-scrollbar select-none pb-2 outline-none"
           tabIndex={0}
           aria-label="Activity heatmap"
           onWheel={handleWheel}
@@ -370,7 +375,7 @@ export function ActivityHeatmap({ heatmap }) {
             className={`inline-flex flex-col min-w-max outline-none ${
               isDraggingContent ? "cursor-grabbing" : "cursor-grab"
             }`}
-            style={{ touchAction: "none" }} // Important for pointer events
+            style={{ touchAction: "none", minWidth: contentWidth }}
             onPointerDown={onContentPointerDown}
             // Move and Up are handled by window listeners now
           >
