@@ -20,5 +20,5 @@
 - [x] 5.1 Document how to edit the registry table in `docs/` or `README`.
 
 ## 6. Verification
-- [ ] 6.1 `npm --prefix dashboard run build`
-- [ ] 6.2 Manual: edit a registry row and confirm UI reflects change.
+- [x] 6.1 `npm --prefix dashboard run build`
+- [x] 6.2 Manual: edit a registry row and confirm UI reflects change.
