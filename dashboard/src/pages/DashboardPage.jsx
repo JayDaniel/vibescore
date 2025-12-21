@@ -15,6 +15,7 @@ import { ActivityHeatmap } from "../ui/matrix-a/components/ActivityHeatmap.jsx";
 import { BootScreen } from "../ui/matrix-a/components/BootScreen.jsx";
 import { IdentityCard } from "../ui/matrix-a/components/IdentityCard.jsx";
 import { MatrixButton } from "../ui/matrix-a/components/MatrixButton.jsx";
+import { TypewriterText } from "../ui/matrix-a/components/TypewriterText.jsx";
 import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
@@ -101,6 +102,20 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const [sort, setSort] = useState(() => ({ key: "day", dir: "desc" }));
   const sortedDaily = useMemo(() => sortDailyRows(daily, sort), [daily, sort]);
+  const hasDailyActual = useMemo(
+    () => daily.some((row) => !row?.missing && !row?.future),
+    [daily]
+  );
+  const dailyPlaceholder = copy("shared.placeholder");
+  const dailyUnsynced = copy("shared.status.unsynced");
+
+  function renderDailyCell(row, key) {
+    if (row?.future) return dailyPlaceholder;
+    if (row?.missing) {
+      return key === "total_tokens" ? dailyUnsynced : dailyPlaceholder;
+    }
+    return toDisplayNumber(row?.[key]);
+  }
 
   function toggleSort(key) {
     setSort((prev) => {
@@ -217,6 +232,50 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const installSyncCmd = isLocalhost
     ? "node bin/tracker.js sync"
     : "npx --yes @vibescore/tracker sync";
+  const installSeenKey = "vibescore.dashboard.install.seen.v1";
+  const [installSeen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      return window.localStorage.getItem(installSeenKey) === "1";
+    } catch (_e) {
+      return false;
+    }
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (installSeen) return;
+    try {
+      window.localStorage.setItem(installSeenKey, "1");
+    } catch (_e) {
+      // ignore write errors (quota/private mode)
+    }
+  }, [installSeen, installSeenKey]);
+  const installIsEmpty = !hasDailyActual;
+  const shouldAnimateInstall = installIsEmpty || !installSeen;
+  const installHeadline = copy("dashboard.install.headline");
+  const installHeadlineDelayMs = 240;
+  const installHeadlineSpeedMs = 45;
+  const installBodySpeedMs = 48;
+  const installBodyDelayMs =
+    installHeadlineDelayMs + installHeadline.length * installHeadlineSpeedMs + 240;
+  const installSegments = useMemo(
+    () => [
+      { text: `${copy("dashboard.install.step1")} ` },
+      {
+        text: installInitCmd,
+        className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
+      },
+      {
+        text: `\n${copy("dashboard.install.step2")}\n${copy("dashboard.install.step3")} `,
+      },
+      {
+        text: installSyncCmd,
+        className: "px-1 py-0.5 bg-black/40 border border-[#00FF41]/20",
+      },
+      { text: ` ${copy("dashboard.install.step3_suffix")}` },
+    ],
+    [installInitCmd, installSyncCmd]
+  );
 
   const redirectUrl = useMemo(() => `${window.location.origin}/auth/callback`, []);
   const signInUrl = useMemo(
@@ -231,8 +290,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const dailyEmptyParts = useMemo(() => {
     const marker = "__CMD__";
     const template = copy("dashboard.daily.empty", { cmd: marker });
-    const [before, after] = template.split(marker);
-    return { before: before || template, after: after || "" };
+    const parts = template.split(marker);
+    return {
+      before: parts[0] ?? template,
+      after: parts.length > 1 ? parts.slice(1).join(marker) : "",
+    };
   }, []);
 
   const headerRight = (
@@ -337,21 +399,25 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
             <AsciiBox
               title={copy("dashboard.install.title")}
               subtitle={copy("dashboard.install.subtitle")}
+              className="relative"
             >
-              <p className="text-[10px] opacity-50 mt-0">
-                {copy("dashboard.install.step1")} {" "}
-                <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                  {installInitCmd}
-                </code>
-                <br />
-                {copy("dashboard.install.step2")}
-                <br />
-                {copy("dashboard.install.step3")} {" "}
-                <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                  {installSyncCmd}
-                </code>{" "}
-                {copy("dashboard.install.step3_suffix")}
-              </p>
+              <div className="text-[9px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+                <TypewriterText
+                  text={installHeadline}
+                  startDelayMs={installHeadlineDelayMs}
+                  speedMs={installHeadlineSpeedMs}
+                  cursor={false}
+                  active={shouldAnimateInstall}
+                />
+              </div>
+              <TypewriterText
+                className="text-[10px] opacity-50 mt-2 whitespace-pre"
+                segments={installSegments}
+                startDelayMs={installBodyDelayMs}
+                speedMs={installBodySpeedMs}
+                cursor={false}
+                active={shouldAnimateInstall}
+              />
             </AsciiBox>
 
             <AsciiBox
@@ -395,77 +461,82 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                 title={copy("dashboard.daily.title")}
                 subtitle={copy("dashboard.daily.subtitle")}
               >
-                {daily.length === 0 ? (
-                  <div className="text-[10px] opacity-40">
+                {!hasDailyActual ? (
+                  <div className="text-[10px] opacity-40 mb-2">
                     {dailyEmptyParts.before}{" "}
                     <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
                       {installSyncCmd}
                     </code>
                     {dailyEmptyParts.after}
                   </div>
-                ) : (
-                  <div
-                    className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
-                    role="region"
-                    aria-label={copy("daily.table.aria_label")}
-                    tabIndex={0}
-                  >
-                    <table className="w-full border-collapse">
-                      <thead className="sticky top-0 bg-black/90 backdrop-blur">
-                        <tr className="border-b border-[#00FF41]/10">
-                          {DAILY_SORT_COLUMNS.map((c) => (
-                            <th
-                              key={c.key}
-                              aria-sort={ariaSortFor(c.key)}
-                              className="text-left p-0"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => toggleSort(c.key)}
-                                title={c.title}
-                                className="w-full px-3 py-2 text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30"
-                              >
-                                <span className="inline-flex items-center gap-2">
-                                  <span>{c.label}</span>
-                                  <span className="opacity-40">
-                                    {sortIconFor(c.key)}
-                                  </span>
-                                </span>
-                              </button>
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sortedDaily.map((r) => (
-                          <tr
-                            key={String(r.day)}
-                            className="border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5"
+                ) : null}
+                <div
+                  className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
+                  role="region"
+                  aria-label={copy("daily.table.aria_label")}
+                  tabIndex={0}
+                >
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 bg-black/90 backdrop-blur">
+                      <tr className="border-b border-[#00FF41]/10">
+                        {DAILY_SORT_COLUMNS.map((c) => (
+                          <th
+                            key={c.key}
+                            aria-sort={ariaSortFor(c.key)}
+                            className="text-left p-0"
                           >
-                            <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
-                              {String(r.day)}
-                            </td>
-                            <td className="px-3 py-2 text-[10px] font-mono">
-                              {toDisplayNumber(r.total_tokens)}
-                            </td>
-                            <td className="px-3 py-2 text-[10px] font-mono">
-                              {toDisplayNumber(r.input_tokens)}
-                            </td>
-                            <td className="px-3 py-2 text-[10px] font-mono">
-                              {toDisplayNumber(r.output_tokens)}
-                            </td>
-                            <td className="px-3 py-2 text-[10px] font-mono">
-                              {toDisplayNumber(r.cached_input_tokens)}
-                            </td>
-                            <td className="px-3 py-2 text-[10px] font-mono">
-                              {toDisplayNumber(r.reasoning_output_tokens)}
-                            </td>
-                          </tr>
+                            <button
+                              type="button"
+                              onClick={() => toggleSort(c.key)}
+                              title={c.title}
+                              className="w-full px-3 py-2 text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30"
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <span>{c.label}</span>
+                                <span className="opacity-40">
+                                  {sortIconFor(c.key)}
+                                </span>
+                              </span>
+                            </button>
+                          </th>
                         ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedDaily.map((r) => (
+                        <tr
+                          key={String(r.day)}
+                          className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
+                            r.missing
+                              ? "text-[#00FF41]/50"
+                              : r.future
+                              ? "text-[#00FF41]/30"
+                              : ""
+                          }`}
+                        >
+                          <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
+                            {String(r.day)}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDailyCell(r, "total_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDailyCell(r, "input_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDailyCell(r, "output_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDailyCell(r, "cached_input_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDailyCell(r, "reasoning_output_tokens")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </AsciiBox>
             ) : null}
           </div>

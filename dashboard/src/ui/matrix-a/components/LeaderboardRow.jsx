@@ -1,17 +1,18 @@
 import React from "react";
 
+import { copy } from "../../../lib/copy.js";
 import { MatrixAvatar } from "./MatrixAvatar.jsx";
 
 function formatRank(rank) {
   const raw = Number(rank);
-  if (!Number.isFinite(raw)) return "--";
+  if (!Number.isFinite(raw)) return copy("shared.placeholder.short");
   return String(Math.max(0, raw)).padStart(2, "0");
 }
 
 function formatValue(value) {
   if (typeof value === "number") return value.toLocaleString();
   if (typeof value === "bigint") return value.toLocaleString();
-  if (value == null) return "--";
+  if (value == null) return copy("shared.placeholder.short");
   return String(value);
 }
 

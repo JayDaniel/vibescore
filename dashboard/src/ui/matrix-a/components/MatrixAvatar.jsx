@@ -1,5 +1,7 @@
 import React, { useMemo } from "react";
 
+import { copy } from "../../../lib/copy.js";
+
 function hashCode(value) {
   let hash = 0;
   for (let i = 0; i < value.length; i += 1) {
@@ -37,7 +39,9 @@ export function MatrixAvatar({
         style={{ width: size, height: size }}
         className={`bg-[#00FF41]/5 border border-[#00FF41]/20 flex items-center justify-center overflow-hidden ${className}`}
       >
-        <span className="text-[#00FF41] font-black text-xl opacity-50">?</span>
+        <span className="text-[#00FF41] font-black text-xl opacity-50">
+          {copy("shared.placeholder.anon_mark")}
+        </span>
       </div>
     );
   }

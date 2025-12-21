@@ -57,6 +57,7 @@ export function TrendMonitor({
       return {
         values: fallbackValues,
         labels: fallbackValues.map((_, idx) => String(idx)),
+        meta: fallbackValues.map(() => ({ missing: false, future: false })),
         bucketCount: fallbackValues.length,
         lastIndex: fallbackValues.length - 1,
       };
@@ -101,7 +102,8 @@ export function TrendMonitor({
       if (dayDate.getTime() > today.getTime()) lastIndex = -1;
       else if (dayDate.getTime() === today.getTime()) lastIndex = now.getUTCHours();
 
-      return { values, labels, bucketCount: 24, lastIndex };
+      const meta = values.map(() => ({ missing: false, future: false }));
+      return { values, labels, meta, bucketCount: 24, lastIndex };
     }
 
     if (period === "total") {
@@ -128,15 +130,24 @@ export function TrendMonitor({
         values.push(monthMap.get(key) || 0);
       }
 
-      return { values, labels, bucketCount: totalMonths, lastIndex: totalMonths - 1 };
+      const meta = values.map(() => ({ missing: false, future: false }));
+      return { values, labels, meta, bucketCount: totalMonths, lastIndex: totalMonths - 1 };
     }
 
     const dayMap = new Map();
+    const metaMap = new Map();
     for (const row of series) {
       const key = row?.day;
       if (!key || typeof key !== "string") continue;
+      const missing = Boolean(row?.missing);
+      const future = Boolean(row?.future);
+      if (missing || future) {
+        if (!metaMap.has(key)) metaMap.set(key, { missing, future });
+        continue;
+      }
       const current = dayMap.get(key) || 0;
       dayMap.set(key, current + Number(row?.total_tokens || row?.value || 0));
+      metaMap.set(key, { missing: false, future: false });
     }
 
     const start = parseDate(from) || today;
@@ -145,11 +156,22 @@ export function TrendMonitor({
 
     const values = [];
     const labels = [];
+    const meta = [];
     for (let i = 0; i < totalDays; i += 1) {
       const dt = addUtcDays(start, i);
       const key = formatDateUTCValue(dt);
+      const entryMeta =
+        metaMap.get(key) ||
+        (dt.getTime() > today.getTime()
+          ? { missing: false, future: true }
+          : { missing: true, future: false });
       labels.push(key);
-      values.push(dayMap.get(key) || 0);
+      meta.push(entryMeta);
+      if (entryMeta.missing || entryMeta.future) {
+        values.push(null);
+      } else {
+        values.push(dayMap.get(key) || 0);
+      }
     }
 
     let lastIndex = totalDays - 1;
@@ -158,24 +180,32 @@ export function TrendMonitor({
       lastIndex = Math.min(totalDays - 1, diffUtcDays(start, today));
     }
 
-    return { values, labels, bucketCount: totalDays, lastIndex };
+    return { values, labels, meta, bucketCount: totalDays, lastIndex };
   }, [fallbackValues, from, period, series, to]);
 
   const bucketCount = timeline.bucketCount;
   const lastIndex = timeline.lastIndex;
   const renderCount = lastIndex >= 0 ? Math.min(lastIndex + 1, timeline.values.length) : 0;
   const renderValues = renderCount > 0 ? timeline.values.slice(0, renderCount) : [];
-  const analysisValues = renderValues.length > 0 ? renderValues : timeline.values;
-  const max = Math.max(...analysisValues, 100);
-  const avg =
-    renderValues.length > 0
-      ? renderValues.reduce((a, b) => a + b, 0) / renderValues.length
-      : 0;
+  const renderMeta = renderCount > 0 ? timeline.meta.slice(0, renderCount) : [];
+  const analysisValues = (renderValues.length > 0 ? renderValues : timeline.values).filter(
+    (val) => Number.isFinite(val)
+  );
+  const max = Math.max(...(analysisValues.length ? analysisValues : [0]), 100);
+  const avg = analysisValues.length
+    ? analysisValues.reduce((a, b) => a + b, 0) / analysisValues.length
+    : 0;
 
   const width = 100;
   const height = 100;
   const axisWidth = 8;
   const plotWidth = width - axisWidth;
+  const pointCount = Math.max(bucketCount, 1);
+  const step = pointCount > 1 ? plotWidth / (pointCount - 1) : 0;
+  const xPadding =
+    pointCount > 1 ? Math.min(step / 2, plotWidth * 0.12) : plotWidth / 2;
+  const plotSpan = Math.max(plotWidth - xPadding * 2, 0);
+  const stepWithPadding = pointCount > 1 ? plotSpan / (pointCount - 1) : 0;
   const plotTop = 4;
   const plotBottom = 4;
   const plotHeight = height - plotTop - plotBottom;
@@ -325,27 +355,42 @@ export function TrendMonitor({
     return labelText;
   }
 
-  const points = useMemo(() => {
-    if (renderValues.length === 0) return "";
-    const denom = Math.max(bucketCount - 1, 1);
-    return renderValues
-      .map((val, i) => {
-        const x = (i / denom) * plotWidth;
-        const normalizedVal = max > 0 ? val / max : 0;
-        const y = plotTop + (1 - normalizedVal) * plotHeight;
-        return `${x},${y}`;
-      })
-      .join(" ");
-  }, [bucketCount, max, plotHeight, plotTop, plotWidth, renderValues]);
+  const lineSegments = useMemo(() => {
+    if (renderValues.length === 0) return [];
+    const denom = Math.max(pointCount - 1, 1);
+    const segments = [];
+    let current = [];
+    renderValues.forEach((val, i) => {
+      if (!Number.isFinite(val)) {
+        if (current.length) {
+          segments.push(current);
+          current = [];
+        }
+        return;
+      }
+      const x =
+        pointCount > 1 ? xPadding + (i / denom) * plotSpan : plotWidth / 2;
+      const normalizedVal = max > 0 ? val / max : 0;
+      const y = plotTop + (1 - normalizedVal) * plotHeight;
+      current.push({ x, y, index: i, value: val });
+    });
+    if (current.length) segments.push(current);
+    return segments;
+  }, [max, plotHeight, plotTop, plotWidth, plotSpan, pointCount, renderValues, xPadding]);
 
-  const lastX =
-    renderValues.length > 0
-      ? ((renderValues.length - 1) / Math.max(bucketCount - 1, 1)) * plotWidth
-      : 0;
-  const fillPath =
-    renderValues.length > 0
-      ? `${points} ${lastX},${height - plotBottom} 0,${height - plotBottom}`
-      : `0,${height - plotBottom} 0,${height - plotBottom}`;
+  const missingPoints = useMemo(() => {
+    if (renderMeta.length === 0) return [];
+    const denom = Math.max(pointCount - 1, 1);
+    return renderMeta
+      .map((meta, i) => {
+        if (!meta?.missing || meta?.future) return null;
+        const x =
+          pointCount > 1 ? xPadding + (i / denom) * plotSpan : plotWidth / 2;
+        const y = plotTop + plotHeight;
+        return { x, y, index: i };
+      })
+      .filter(Boolean);
+  }, [plotHeight, plotTop, plotSpan, pointCount, plotWidth, renderMeta, xPadding]);
   const xLabels = useMemo(() => buildXAxisLabels(), [from, period, to, timeline.labels]);
 
   const plotRef = useRef(null);
@@ -358,16 +403,25 @@ export function TrendMonitor({
     const axisWidthPx = (axisWidth / width) * rect.width;
     const plotWidthPx = rect.width - axisWidthPx;
     const rawX = Math.min(Math.max(e.clientX - rect.left, 0), plotWidthPx);
-    const denom = Math.max(bucketCount - 1, 1);
-    const ratio = plotWidthPx > 0 ? rawX / plotWidthPx : 0;
+    const xPaddingPx = plotWidth > 0 ? (xPadding / plotWidth) * plotWidthPx : 0;
+    const plotSpanPx = Math.max(plotWidthPx - xPaddingPx * 2, 0);
+    const denom = Math.max(pointCount - 1, 1);
+    const clamped = Math.min(Math.max(rawX - xPaddingPx, 0), plotSpanPx);
+    const ratio = plotSpanPx > 0 ? clamped / plotSpanPx : 0;
     const index = Math.round(ratio * denom);
     if (index > lastIndex) {
       setHover(null);
       return;
     }
-    const value = timeline.values[index] ?? 0;
+    const meta = timeline.meta[index] || {};
+    if (meta.future) {
+      setHover(null);
+      return;
+    }
+    const rawValue = timeline.values[index];
+    const value = Number.isFinite(rawValue) ? rawValue : 0;
     const snappedX =
-      denom > 0 ? (index / denom) * plotWidthPx : plotWidthPx / 2;
+      denom > 0 ? xPaddingPx + (index / denom) * plotSpanPx : plotWidthPx / 2;
     const labelText = timeline.labels[index] || "";
     const yRatio = max > 0 ? 1 - value / max : 1;
     const yPx =
@@ -382,6 +436,7 @@ export function TrendMonitor({
       rectWidth: rect.width,
       axisWidthPx,
       plotWidthPx,
+      missing: Boolean(meta.missing),
     });
   }
 
@@ -398,6 +453,7 @@ export function TrendMonitor({
   const avgLabel = copy("trend.monitor.avg_label", { value: Math.round(avg) });
   const nowLabel = copy("trend.monitor.now_label");
   const tooltipUnit = copy("trend.monitor.tooltip.tokens");
+  const unsyncedLabel = copy("shared.status.unsynced");
 
   return (
     <div className="w-full h-full min-h-[160px] flex flex-col relative group select-none bg-[#050505] border border-white/10 p-1">
@@ -437,15 +493,54 @@ export function TrendMonitor({
             </linearGradient>
           </defs>
 
-          <path d={`M${fillPath} Z`} fill={`url(#${gradientId})`} />
-          <polyline
-            points={points}
-            fill="none"
-            stroke={color}
-            strokeWidth="1.5"
-            vectorEffect="non-scaling-stroke"
-            className="drop-shadow-[0_0_5px_rgba(0,255,65,0.8)]"
-          />
+          {lineSegments.map((segment, idx) => {
+            if (segment.length < 2) {
+              const pt = segment[0];
+              return (
+                <circle
+                  key={`seg-dot-${idx}`}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r="2"
+                  fill={color}
+                  opacity="0.9"
+                  className="drop-shadow-[0_0_5px_rgba(0,255,65,0.8)]"
+                />
+              );
+            }
+            const points = segment.map((pt) => `${pt.x},${pt.y}`).join(" ");
+            const first = segment[0];
+            const last = segment[segment.length - 1];
+            const fillPath = `M${points} L${last.x},${height - plotBottom} L${first.x},${
+              height - plotBottom
+            } Z`;
+            return (
+              <React.Fragment key={`seg-${idx}`}>
+                <path d={fillPath} fill={`url(#${gradientId})`} />
+                <polyline
+                  points={points}
+                  fill="none"
+                  stroke={color}
+                  strokeWidth="1.5"
+                  vectorEffect="non-scaling-stroke"
+                  className="drop-shadow-[0_0_5px_rgba(0,255,65,0.8)]"
+                />
+              </React.Fragment>
+            );
+          })}
+          {missingPoints.map((pt) => (
+            <circle
+              key={`missing-${pt.index}`}
+              cx={pt.x}
+              cy={pt.y}
+              r="2.2"
+              fill="none"
+              stroke={color}
+              strokeWidth="1"
+              strokeDasharray="2 2"
+              opacity="0.8"
+            />
+          ))}
         </svg>
 
         <div className="absolute right-0 top-0 bottom-0 flex flex-col justify-between py-1 px-1 text-[7px] font-mono text-[#00FF41]/60 pointer-events-none bg-black/60 backdrop-blur-[1px] border-l border-white/5 w-8 text-right">
@@ -491,12 +586,16 @@ export function TrendMonitor({
               <div className="opacity-70">
                 {formatTooltipLabel(hover.label)}
               </div>
-              <div className="font-bold">
-                {copy("trend.monitor.tooltip.value", {
-                  value: formatFull(hover.value),
-                  unit: tooltipUnit,
-                })}
-              </div>
+              {hover.missing ? (
+                <div className="font-bold">{unsyncedLabel}</div>
+              ) : (
+                <div className="font-bold">
+                  {copy("trend.monitor.tooltip.value", {
+                    value: formatFull(hover.value),
+                    unit: tooltipUnit,
+                  })}
+                </div>
+              )}
             </div>
           </>
         ) : null}

@@ -1,11 +1,13 @@
 key,module,page,component,slot,text,notes,status
 shared.placeholder,shared,*,*,placeholder,"—",,active
+shared.placeholder.short,shared,*,*,placeholder_short,"--",,active
+shared.placeholder.anon_mark,shared,*,*,placeholder_anon_mark,"?",,active
 shared.button.sign_in,shared,*,MatrixButton,label,"$ sign-in",,active
 shared.button.sign_up,shared,*,MatrixButton,label,"$ sign-up",,active
-shared.range.utc,shared,*,*,label,"Range: {{range}} (UTC)",,active
 shared.range.simple,shared,*,*,label,"Range: {{range}}",,active
 shared.data_source,shared,*,*,label,"DATA_SOURCE: {{source}}",,active
 shared.error.prefix,shared,*,*,label,"Error: {{error}}",,active
+shared.status.unsynced,shared,*,*,status,"未同步",,active
 
 landing.handle.default,landing,LandingPage,LandingPage,handle_default,"VIBE_USER",,active
 landing.handle.special,landing,LandingPage,LandingPage,handle_special,"NEO",,active
@@ -173,7 +175,6 @@ heatmap.day.sat,ui,ActivityHeatmap,ActivityHeatmap,day_label,"Sat",,active
 archive.title,ui,ArchiveHeatmap,ArchiveHeatmap,title,"Archive_Sector",,active
 archive.footer.left,ui,ArchiveHeatmap,ArchiveHeatmap,footer_left,"Yearly_Map",,active
 
-trend.monitor.range.utc,ui,TrendMonitor,TrendMonitor,range_utc,"UTC",,active
 
 daily.table.aria_label,dashboard,DashboardPage,DashboardPage,aria_label,"Daily totals table",,active
 
@@ -214,6 +215,7 @@ dashboard.auth_optional.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / si
 
 dashboard.install.title,dashboard,DashboardPage,AsciiBox,title,"Install",,active
 dashboard.install.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"CLI",,active
+dashboard.install.headline,dashboard,DashboardPage,AsciiBox,headline,">> START_HERE: INSTALL_CLI",,active
 dashboard.install.step1,dashboard,DashboardPage,AsciiBox,install_step,"1) run",,active
 dashboard.install.step2,dashboard,DashboardPage,AsciiBox,install_step,"2) use Codex CLI normally",,active
 dashboard.install.step3,dashboard,DashboardPage,AsciiBox,install_step,"3) run",,active
