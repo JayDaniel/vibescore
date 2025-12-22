@@ -100,15 +100,28 @@ async function invokeFunctionWithRetry({ baseUrl, accessToken, slug, method, bod
 }
 
 function normalizeSdkError(error, errorPrefix) {
-  const raw = error?.message || String(error || 'Unknown error');
+  const raw = extractSdkErrorMessage(error);
   const msg = normalizeBackendErrorMessage(raw);
   const err = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   const status = error?.statusCode ?? error?.status;
+  const code = typeof error?.error === 'string' ? error.error.trim() : '';
   if (typeof status === 'number') err.status = status;
+  if (code) err.code = code;
   err.retryable = isRetryableStatus(status) || isRetryableMessage(raw);
   if (msg !== raw) err.originalMessage = raw;
   if (error?.nextActions) err.nextActions = error.nextActions;
   return err;
+}
+
+function extractSdkErrorMessage(error) {
+  if (!error) return 'Unknown error';
+  const message = typeof error.message === 'string' ? error.message.trim() : '';
+  const code = typeof error.error === 'string' ? error.error.trim() : '';
+  if (message && message !== 'InsForgeError') return message;
+  if (code && code !== 'REQUEST_FAILED') return code;
+  if (message) return message;
+  if (code) return code;
+  return String(error);
 }
 
 function normalizeBackendErrorMessage(message) {
