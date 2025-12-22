@@ -92,6 +92,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   });
 
   const shareDailyToTrend = period === "week" || period === "month";
+  const visibleDaily = useMemo(
+    () => daily.filter((row) => !row?.future),
+    [daily]
+  );
   const {
     rows: trendRows,
     from: trendFrom,
@@ -108,7 +112,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     cacheKey: auth?.userId || auth?.email || "default",
     timeZone: trendTimeZone,
     tzOffsetMinutes: trendTzOffsetMinutes,
-    sharedRows: shareDailyToTrend ? daily : null,
+    sharedRows: shareDailyToTrend ? visibleDaily : null,
     sharedRange: shareDailyToTrend ? { from, to } : null,
   });
 
@@ -129,10 +133,13 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   });
 
   const [sort, setSort] = useState(() => ({ key: "day", dir: "desc" }));
-  const sortedDaily = useMemo(() => sortDailyRows(daily, sort), [daily, sort]);
+  const sortedDaily = useMemo(
+    () => sortDailyRows(visibleDaily, sort),
+    [visibleDaily, sort]
+  );
   const hasDailyActual = useMemo(
-    () => daily.some((row) => !row?.missing && !row?.future),
-    [daily]
+    () => visibleDaily.some((row) => !row?.missing && !row?.future),
+    [visibleDaily]
   );
 
   function renderDailyCell(row, key) {
@@ -269,7 +276,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
       // ignore write errors (quota/private mode)
     }
   }, [installSeen, installSeenKey]);
-  const installIsEmpty = daily.length === 0;
+  const installIsEmpty = visibleDaily.length === 0;
   const shouldAnimateInstall = installIsEmpty || !installSeen;
   const installHeadline = copy("dashboard.install.headline");
   const installHeadlineDelayMs = 240;

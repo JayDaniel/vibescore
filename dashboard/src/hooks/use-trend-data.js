@@ -84,7 +84,8 @@ export function useTrendData({
 
   const refresh = useCallback(async () => {
     if (sharedEnabled) {
-      setRows(Array.isArray(sharedRows) ? sharedRows : []);
+      const shared = stripFutureRows(sharedRows);
+      setRows(shared);
       setRange({ from: sharedFrom, to: sharedTo });
       setSource("shared");
       setFetchedAt(null);
@@ -139,7 +140,13 @@ export function useTrendData({
           timeZone,
           offsetMinutes: tzOffsetMinutes,
         });
+      } else if (mode === "monthly") {
+        nextRows = markMonthlyFuture(nextRows, {
+          timeZone,
+          offsetMinutes: tzOffsetMinutes,
+        });
       }
+      nextRows = stripFutureRows(nextRows);
       const nowIso = new Date().toISOString();
 
       setRows(nextRows);
@@ -157,7 +164,7 @@ export function useTrendData({
     } catch (e) {
       const cached = readCache();
       if (cached?.rows) {
-        const filledRows =
+        let filledRows =
           mode === "daily"
             ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
                 timeZone,
@@ -166,7 +173,18 @@ export function useTrendData({
             : Array.isArray(cached.rows)
             ? cached.rows
             : [];
-        setRows(filledRows);
+        if (mode === "hourly") {
+          filledRows = markHourlyFuture(filledRows, {
+            timeZone,
+            offsetMinutes: tzOffsetMinutes,
+          });
+        } else if (mode === "monthly") {
+          filledRows = markMonthlyFuture(filledRows, {
+            timeZone,
+            offsetMinutes: tzOffsetMinutes,
+          });
+        }
+        setRows(stripFutureRows(filledRows));
         setRange({ from: cached.from || from, to: cached.to || to });
         setSource("cache");
         setFetchedAt(cached.fetchedAt || null);
@@ -201,7 +219,7 @@ export function useTrendData({
 
   useEffect(() => {
     if (sharedEnabled) {
-      setRows(Array.isArray(sharedRows) ? sharedRows : []);
+      setRows(stripFutureRows(sharedRows));
       setRange({ from: sharedFrom, to: sharedTo });
       setSource("shared");
       setFetchedAt(null);
@@ -220,16 +238,27 @@ export function useTrendData({
     }
     const cached = readCache();
     if (cached?.rows) {
-      const filledRows =
+      let filledRows =
         mode === "daily"
           ? fillDailyGaps(cached.rows || [], cached.from || from, cached.to || to, {
               timeZone,
               offsetMinutes: tzOffsetMinutes,
             })
-          : Array.isArray(cached.rows)
-          ? cached.rows
-          : [];
-      setRows(filledRows);
+        : Array.isArray(cached.rows)
+        ? cached.rows
+        : [];
+      if (mode === "hourly") {
+        filledRows = markHourlyFuture(filledRows, {
+          timeZone,
+          offsetMinutes: tzOffsetMinutes,
+        });
+      } else if (mode === "monthly") {
+        filledRows = markMonthlyFuture(filledRows, {
+          timeZone,
+          offsetMinutes: tzOffsetMinutes,
+        });
+      }
+      setRows(stripFutureRows(filledRows));
       setRange({ from: cached.from || from, to: cached.to || to });
       setSource("cache");
       setFetchedAt(cached.fetchedAt || null);
@@ -338,6 +367,29 @@ function markHourlyFuture(rows, { timeZone, offsetMinutes } = {}) {
   });
 }
 
+function markMonthlyFuture(rows, { timeZone, offsetMinutes } = {}) {
+  if (!Array.isArray(rows)) return [];
+  const nowParts = getNowParts({ timeZone, offsetMinutes });
+  if (!nowParts) return rows;
+
+  return rows.map((row) => {
+    const label = row?.month || row?.label || "";
+    const parsed = parseMonthLabel(label);
+    if (!parsed) {
+      return { ...row, future: false };
+    }
+    const isFuture =
+      parsed.year > nowParts.year ||
+      (parsed.year === nowParts.year && parsed.month > nowParts.month);
+    return { ...row, future: isFuture };
+  });
+}
+
+function stripFutureRows(rows) {
+  if (!Array.isArray(rows)) return [];
+  return rows.filter((row) => !row?.future);
+}
+
 function getNowParts({ timeZone, offsetMinutes } = {}) {
   const now = new Date();
   if (timeZone && typeof Intl !== "undefined" && Intl.DateTimeFormat) {
@@ -425,4 +477,16 @@ function parseHourLabel(label) {
     dayNum: year * 10000 + month * 100 + day,
     hour,
   };
+}
+
+function parseMonthLabel(label) {
+  if (!label) return null;
+  const raw = String(label).trim();
+  const parts = raw.split("-");
+  if (parts.length !== 2) return null;
+  const year = Number(parts[0]);
+  const month = Number(parts[1]);
+  if (!Number.isFinite(year) || !Number.isFinite(month)) return null;
+  if (month < 1 || month > 12) return null;
+  return { year, month };
 }
