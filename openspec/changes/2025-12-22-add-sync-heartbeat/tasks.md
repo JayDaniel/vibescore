@@ -1,7 +1,7 @@
 ## 1. Backend heartbeat
 - [ ] 1.1 Decide persistence field (`vibescore_tracker_devices.last_seen_at` vs new `last_sync_at`) and access path (service role vs records API vs RPC)
 - [ ] 1.2 Add `POST /functions/vibescore-sync-ping` (device token auth, idempotent, returns last_sync_at)
-- [ ] 1.3 Enforce server-side min-interval (ignore pings < 15 min)
+- [ ] 1.3 Enforce server-side min-interval (ignore pings < 30 min)
 
 ## 2. Hourly response
 - [ ] 2.1 Compute `last_sync_at` (max across devices for user)
@@ -10,7 +10,7 @@
 
 ## 3. CLI throttling
 - [ ] 3.1 Add local heartbeat state (timestamp) persisted under `~/.vibescore/tracker/`
-- [ ] 3.2 Send heartbeat only when `inserted === 0` and last ping > min interval
+- [ ] 3.2 Send heartbeat only when `inserted === 0` and last ping > min interval (30 min)
 - [ ] 3.3 Ensure heartbeat never blocks Codex notify (best-effort + timeout)
 
 ## 4. Dashboard UI

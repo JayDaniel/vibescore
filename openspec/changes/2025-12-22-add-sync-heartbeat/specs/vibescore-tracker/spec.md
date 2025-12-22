@@ -21,7 +21,7 @@ The hourly usage endpoint SHALL mark buckets after the latest sync timestamp as 
 The system MUST bound heartbeat frequency to avoid backend overload.
 
 #### Scenario: Rapid sync calls are rate-limited
-- **GIVEN** the last heartbeat was less than 15 minutes ago
+- **GIVEN** the last heartbeat was less than 30 minutes ago
 - **WHEN** the CLI calls the heartbeat endpoint again
 - **THEN** the backend SHALL accept the request but MUST NOT update `last_sync_at`
 
