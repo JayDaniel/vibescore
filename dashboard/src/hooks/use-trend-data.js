@@ -131,6 +131,11 @@ export function useTrendData({
       let nextRows = Array.isArray(response?.data) ? response.data : [];
       if (mode === "daily") {
         nextRows = fillDailyGaps(nextRows, nextFrom || from, nextTo || to);
+      } else if (mode === "hourly") {
+        nextRows = markHourlyFuture(nextRows, {
+          timeZone,
+          offsetMinutes: tzOffsetMinutes,
+        });
       }
       const nowIso = new Date().toISOString();
 
@@ -293,4 +298,111 @@ function fillDailyGaps(rows, from, to) {
   }
 
   return filled;
+}
+
+function markHourlyFuture(rows, { timeZone, offsetMinutes } = {}) {
+  if (!Array.isArray(rows)) return [];
+  const nowParts = getNowParts({ timeZone, offsetMinutes });
+  if (!nowParts) return rows;
+
+  return rows.map((row) => {
+    const label = row?.hour || row?.label || "";
+    const parsed = parseHourLabel(label);
+    if (!parsed) {
+      return { ...row, future: false };
+    }
+    const isFuture =
+      parsed.dayNum > nowParts.dayNum ||
+      (parsed.dayNum === nowParts.dayNum && parsed.hour > nowParts.hour);
+    return { ...row, future: isFuture };
+  });
+}
+
+function getNowParts({ timeZone, offsetMinutes } = {}) {
+  const now = new Date();
+  if (timeZone && typeof Intl !== "undefined" && Intl.DateTimeFormat) {
+    try {
+      const formatter = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        hourCycle: "h23",
+      });
+      const parts = formatter.formatToParts(now);
+      const values = parts.reduce((acc, part) => {
+        if (part.type && part.value) acc[part.type] = part.value;
+        return acc;
+      }, {});
+      const year = Number(values.year);
+      const month = Number(values.month);
+      const day = Number(values.day);
+      const hour = Number(values.hour);
+      if (
+        Number.isFinite(year) &&
+        Number.isFinite(month) &&
+        Number.isFinite(day) &&
+        Number.isFinite(hour)
+      ) {
+        return {
+          year,
+          month,
+          day,
+          hour,
+          dayNum: year * 10000 + month * 100 + day,
+        };
+      }
+    } catch (_e) {
+      // fallback below
+    }
+  }
+
+  if (Number.isFinite(offsetMinutes)) {
+    const shifted = new Date(now.getTime() + offsetMinutes * 60 * 1000);
+    const year = shifted.getUTCFullYear();
+    const month = shifted.getUTCMonth() + 1;
+    const day = shifted.getUTCDate();
+    const hour = shifted.getUTCHours();
+    return {
+      year,
+      month,
+      day,
+      hour,
+      dayNum: year * 10000 + month * 100 + day,
+    };
+  }
+
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const day = now.getDate();
+  const hour = now.getHours();
+  return {
+    year,
+    month,
+    day,
+    hour,
+    dayNum: year * 10000 + month * 100 + day,
+  };
+}
+
+function parseHourLabel(label) {
+  if (!label) return null;
+  const raw = String(label).trim();
+  const [datePart, timePart] = raw.split("T");
+  if (!datePart || !timePart) return null;
+  const dateParts = datePart.split("-");
+  if (dateParts.length !== 3) return null;
+  const year = Number(dateParts[0]);
+  const month = Number(dateParts[1]);
+  const day = Number(dateParts[2]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+  const hour = Number(timePart.slice(0, 2));
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return null;
+  return {
+    dayNum: year * 10000 + month * 100 + day,
+    hour,
+  };
 }
