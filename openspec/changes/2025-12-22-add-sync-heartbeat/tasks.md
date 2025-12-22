@@ -20,4 +20,4 @@
 ## 5. Docs + Validation
 - [x] 5.1 Update `BACKEND_API.md` for new endpoint/response fields
 - [x] 5.2 Add acceptance script for heartbeat + hourly missing
-- [ ] 5.3 Manual verification: run `sync` with no new events, confirm UI shows "未同步" for hours after last sync
+- [x] 5.3 Manual verification: run `sync` with no new events, confirm UI shows "未同步" for hours after last sync
