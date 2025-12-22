@@ -61,7 +61,7 @@ To keep low-tier backends stable, the CLI and dashboard apply conservative defau
 
 ## Endpoints
 
-**Phase 1 note (2025-12-22):** For usage endpoints, `tz` and `tz_offset_minutes` are accepted but ignored; aggregates are computed in UTC to guarantee completeness. These parameters will be restored in Phase 2.
+**Timezone note:** Usage endpoints accept `tz` (IANA) or `tz_offset_minutes` (fixed offset). When provided and non-UTC, date boundaries are interpreted in that timezone. When omitted, usage endpoints default to UTC behavior.
 
 ### POST /functions/vibescore-device-token-issue
 

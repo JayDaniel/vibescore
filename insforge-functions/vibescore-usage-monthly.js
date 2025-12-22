@@ -217,7 +217,7 @@ var require_date = __commonJS({
     function parseOffsetMinutes(raw) {
       if (raw == null || raw === "") return null;
       const s = String(raw).trim();
-      if (!/^-?\\d+$/.test(s)) return null;
+      if (!/^-?\d+$/.test(s)) return null;
       const v = Number(s);
       if (!Number.isFinite(v)) return null;
       if (v < -840 || v > 840) return null;
@@ -241,8 +241,11 @@ var require_date = __commonJS({
       if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
       return { timeZone: null, offsetMinutes: 0, source: "utc" };
     }
-    function getUsageTimeZoneContext2(_url) {
-      return normalizeTimeZone();
+    function getUsageTimeZoneContext2(url) {
+      if (!url || !url.searchParams) return normalizeTimeZone();
+      const tz = url.searchParams.get("tz");
+      const offset = url.searchParams.get("tz_offset_minutes");
+      return normalizeTimeZone(tz, offset);
     }
     function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
@@ -416,6 +419,47 @@ var require_numbers = __commonJS({
   }
 });
 
+// insforge-src/shared/pagination.js
+var require_pagination = __commonJS({
+  "insforge-src/shared/pagination.js"(exports2, module2) {
+    "use strict";
+    var MAX_PAGE_SIZE = 1e3;
+    function normalizePageSize(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
+      return Math.min(MAX_PAGE_SIZE, Math.floor(size));
+    }
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
+      if (typeof createQuery !== "function") {
+        throw new Error("createQuery must be a function");
+      }
+      if (typeof onPage !== "function") {
+        throw new Error("onPage must be a function");
+      }
+      const size = normalizePageSize(pageSize);
+      let offset = 0;
+      while (true) {
+        const query = createQuery();
+        if (!query || typeof query.range !== "function") {
+          const { data: data2, error: error2 } = await query;
+          if (error2) return { error: error2 };
+          const rows2 = Array.isArray(data2) ? data2 : [];
+          if (rows2.length) await onPage(rows2);
+          return { error: null };
+        }
+        const { data, error } = await query.range(offset, offset + size - 1);
+        if (error) return { error };
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length) await onPage(rows);
+        if (rows.length < size) break;
+        offset += size;
+      }
+      return { error: null };
+    }
+    module2.exports = { forEachPage: forEachPage2 };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-monthly.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
@@ -433,6 +477,7 @@ var {
   parseUtcDateString
 } = require_date();
 var { toBigInt, toPositiveIntOrNull } = require_numbers();
+var { forEachPage } = require_pagination();
 var MAX_MONTHS = 24;
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -480,9 +525,9 @@ module.exports = async function(request) {
       }
       return json({ from: from2, to: to2, months, data: buildMonthlyResponse(monthKeys2, buckets2) }, 200);
     }
-    const { data: data2, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
+    const { data, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
     if (error2) return json({ error: error2.message }, 500);
-    for (const row of data2 || []) {
+    for (const row of data || []) {
       const day = row?.day;
       if (typeof day !== "string" || day.length < 7) continue;
       const key = day.slice(0, 7);
@@ -517,8 +562,6 @@ module.exports = async function(request) {
   const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso);
-  if (error) return json({ error: error.message }, 500);
   const monthKeys = [];
   const buckets = /* @__PURE__ */ new Map();
   for (let i = 0; i < months; i += 1) {
@@ -533,21 +576,27 @@ module.exports = async function(request) {
       reasoning: 0n
     });
   }
-  for (const row of data || []) {
-    const ts = row?.token_timestamp;
-    if (!ts) continue;
-    const dt = new Date(ts);
-    if (!Number.isFinite(dt.getTime())) continue;
-    const localParts = getLocalParts(dt, tzContext);
-    const key = `${localParts.year}-${String(localParts.month).padStart(2, "0")}`;
-    const bucket = buckets.get(key);
-    if (!bucket) continue;
-    bucket.total += toBigInt(row?.total_tokens);
-    bucket.input += toBigInt(row?.input_tokens);
-    bucket.cached += toBigInt(row?.cached_input_tokens);
-    bucket.output += toBigInt(row?.output_tokens);
-    bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-  }
+  const { error } = await forEachPage({
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        const ts = row?.token_timestamp;
+        if (!ts) continue;
+        const dt = new Date(ts);
+        if (!Number.isFinite(dt.getTime())) continue;
+        const localParts = getLocalParts(dt, tzContext);
+        const key = `${localParts.year}-${String(localParts.month).padStart(2, "0")}`;
+        const bucket = buckets.get(key);
+        if (!bucket) continue;
+        bucket.total += toBigInt(row?.total_tokens);
+        bucket.input += toBigInt(row?.input_tokens);
+        bucket.cached += toBigInt(row?.cached_input_tokens);
+        bucket.output += toBigInt(row?.output_tokens);
+        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      }
+    }
+  });
+  if (error) return json({ error: error.message }, 500);
   const monthly = monthKeys.map((key) => {
     const bucket = buckets.get(key);
     return {

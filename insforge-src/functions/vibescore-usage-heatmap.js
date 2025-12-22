@@ -22,6 +22,7 @@ const {
   parseUtcDateString
 } = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
+const { forEachPage } = require('../shared/pagination');
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -167,25 +168,31 @@ module.exports = async function(request) {
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
 
-  const { data, error } = await auth.edgeClient.database
-    .from('vibescore_tracker_events')
-    .select('token_timestamp,total_tokens')
-    .eq('user_id', auth.userId)
-    .gte('token_timestamp', startIso)
-    .lt('token_timestamp', endIso);
+  const valuesByDay = new Map();
+
+  const { error } = await forEachPage({
+    createQuery: () =>
+      auth.edgeClient.database
+        .from('vibescore_tracker_events')
+        .select('token_timestamp,total_tokens')
+        .eq('user_id', auth.userId)
+        .gte('token_timestamp', startIso)
+        .lt('token_timestamp', endIso)
+        .order('token_timestamp', { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        const ts = row?.token_timestamp;
+        if (!ts) continue;
+        const dt = new Date(ts);
+        if (!Number.isFinite(dt.getTime())) continue;
+        const key = formatLocalDateKey(dt, tzContext);
+        const prev = valuesByDay.get(key) || 0n;
+        valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
+      }
+    }
+  });
 
   if (error) return json({ error: error.message }, 500);
-
-  const valuesByDay = new Map();
-  for (const row of Array.isArray(data) ? data : []) {
-    const ts = row?.token_timestamp;
-    if (!ts) continue;
-    const dt = new Date(ts);
-    if (!Number.isFinite(dt.getTime())) continue;
-    const key = formatLocalDateKey(dt, tzContext);
-    const prev = valuesByDay.get(key) || 0n;
-    valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
-  }
 
   const nz = [];
   let activeDays = 0;

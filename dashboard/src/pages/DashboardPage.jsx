@@ -65,13 +65,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     () => `Local time (${timeZoneShortLabel})`,
     [timeZoneShortLabel]
   );
-  const trendTimeZone = period === "day" ? "UTC" : timeZone;
-  const trendTzOffsetMinutes = period === "day" ? 0 : tzOffsetMinutes;
-  const trendTimeZoneLabel = useMemo(
-    () =>
-      period === "day" ? copy("trend.monitor.tooltip.utc") : timeZoneLabel,
-    [period, timeZoneLabel]
-  );
+  const trendTimeZone = timeZone;
+  const trendTzOffsetMinutes = tzOffsetMinutes;
+  const trendTimeZoneLabel = timeZoneLabel;
 
   const {
     daily,

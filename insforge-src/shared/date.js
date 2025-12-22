@@ -125,7 +125,7 @@ function addDatePartsMonths(parts, months) {
 function parseOffsetMinutes(raw) {
   if (raw == null || raw === '') return null;
   const s = String(raw).trim();
-  if (!/^-?\\d+$/.test(s)) return null;
+  if (!/^-?\d+$/.test(s)) return null;
   const v = Number(s);
   if (!Number.isFinite(v)) return null;
   if (v < -840 || v > 840) return null;
@@ -152,9 +152,11 @@ function normalizeTimeZone(tzRaw, offsetRaw) {
   return { timeZone: null, offsetMinutes: 0, source: 'utc' };
 }
 
-function getUsageTimeZoneContext(_url) {
-  // Phase 1: ignore tz parameters to avoid partial aggregates.
-  return normalizeTimeZone();
+function getUsageTimeZoneContext(url) {
+  if (!url || !url.searchParams) return normalizeTimeZone();
+  const tz = url.searchParams.get('tz');
+  const offset = url.searchParams.get('tz_offset_minutes');
+  return normalizeTimeZone(tz, offset);
 }
 
 function isUtcTimeZone(tzContext) {

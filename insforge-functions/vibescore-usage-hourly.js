@@ -217,7 +217,7 @@ var require_date = __commonJS({
     function parseOffsetMinutes(raw) {
       if (raw == null || raw === "") return null;
       const s = String(raw).trim();
-      if (!/^-?\\d+$/.test(s)) return null;
+      if (!/^-?\d+$/.test(s)) return null;
       const v = Number(s);
       if (!Number.isFinite(v)) return null;
       if (v < -840 || v > 840) return null;
@@ -241,8 +241,11 @@ var require_date = __commonJS({
       if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
       return { timeZone: null, offsetMinutes: 0, source: "utc" };
     }
-    function getUsageTimeZoneContext2(_url) {
-      return normalizeTimeZone();
+    function getUsageTimeZoneContext2(url) {
+      if (!url || !url.searchParams) return normalizeTimeZone();
+      const tz = url.searchParams.get("tz");
+      const offset = url.searchParams.get("tz_offset_minutes");
+      return normalizeTimeZone(tz, offset);
     }
     function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
@@ -416,6 +419,47 @@ var require_numbers = __commonJS({
   }
 });
 
+// insforge-src/shared/pagination.js
+var require_pagination = __commonJS({
+  "insforge-src/shared/pagination.js"(exports2, module2) {
+    "use strict";
+    var MAX_PAGE_SIZE = 1e3;
+    function normalizePageSize(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
+      return Math.min(MAX_PAGE_SIZE, Math.floor(size));
+    }
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
+      if (typeof createQuery !== "function") {
+        throw new Error("createQuery must be a function");
+      }
+      if (typeof onPage !== "function") {
+        throw new Error("onPage must be a function");
+      }
+      const size = normalizePageSize(pageSize);
+      let offset = 0;
+      while (true) {
+        const query = createQuery();
+        if (!query || typeof query.range !== "function") {
+          const { data: data2, error: error2 } = await query;
+          if (error2) return { error: error2 };
+          const rows2 = Array.isArray(data2) ? data2 : [];
+          if (rows2.length) await onPage(rows2);
+          return { error: null };
+        }
+        const { data, error } = await query.range(offset, offset + size - 1);
+        if (error) return { error };
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length) await onPage(rows);
+        if (rows.length < size) break;
+        offset += size;
+      }
+      return { error: null };
+    }
+    module2.exports = { forEachPage: forEachPage2 };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-hourly.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
@@ -433,6 +477,7 @@ var {
   parseUtcDateString
 } = require_date();
 var { toBigInt } = require_numbers();
+var { forEachPage } = require_pagination();
 var MIN_INTERVAL_MINUTES = 30;
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -451,16 +496,24 @@ module.exports = async function(request) {
     const today = parseUtcDateString(formatDateUTC(/* @__PURE__ */ new Date()));
     const day = dayRaw2 ? parseUtcDateString(dayRaw2) : today;
     if (!day) return json({ error: "Invalid day" }, 400);
-    const startIso2 = new Date(
+    const startUtc2 = new Date(
       Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)
-    ).toISOString();
+    );
+    const startIso2 = startUtc2.toISOString();
     const endDate = addUtcDays(day, 1);
-    const endIso2 = new Date(
+    const endUtc2 = new Date(
       Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 0, 0, 0)
-    ).toISOString();
+    );
+    const endIso2 = endUtc2.toISOString();
     const dayLabel = formatDateUTC(day);
-    const { hourKeys, buckets: buckets2, bucketMap } = initHourlyBuckets(dayLabel);
-    const syncMeta = await getSyncMeta({ edgeClient: auth.edgeClient, userId: auth.userId, day });
+    const { hourKeys: hourKeys2, buckets: buckets2, bucketMap: bucketMap2 } = initHourlyBuckets(dayLabel);
+    const syncMeta2 = await getSyncMeta({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      startUtc: startUtc2,
+      endUtc: endUtc2,
+      tzContext
+    });
     const aggregateRows = await tryAggregateHourlyTotals({
       edgeClient: auth.edgeClient,
       userId: auth.userId,
@@ -470,7 +523,7 @@ module.exports = async function(request) {
     if (aggregateRows) {
       for (const row of aggregateRows) {
         const key = formatHourKeyFromValue(row?.hour);
-        const bucket = key ? bucketMap.get(key) : null;
+        const bucket = key ? bucketMap2.get(key) : null;
         if (!bucket) continue;
         bucket.total += toBigInt(row?.sum_total_tokens);
         bucket.input += toBigInt(row?.sum_input_tokens);
@@ -481,33 +534,37 @@ module.exports = async function(request) {
       return json(
         {
           day: dayLabel,
-          data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterHour),
-          sync: buildSyncResponse(syncMeta)
+          data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterHour),
+          sync: buildSyncResponse(syncMeta2)
         },
         200
       );
     }
-    const { data: data2, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso2).lt("token_timestamp", endIso2);
+    const { error: error2 } = await forEachPage({
+      createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso2).lt("token_timestamp", endIso2).order("token_timestamp", { ascending: true }),
+      onPage: (rows) => {
+        for (const row of rows) {
+          const ts = row?.token_timestamp;
+          if (!ts) continue;
+          const dt = new Date(ts);
+          if (!Number.isFinite(dt.getTime())) continue;
+          const hour = dt.getUTCHours();
+          if (hour < 0 || hour > 23) continue;
+          const bucket = buckets2[hour];
+          bucket.total += toBigInt(row?.total_tokens);
+          bucket.input += toBigInt(row?.input_tokens);
+          bucket.cached += toBigInt(row?.cached_input_tokens);
+          bucket.output += toBigInt(row?.output_tokens);
+          bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+        }
+      }
+    });
     if (error2) return json({ error: error2.message }, 500);
-    for (const row of data2 || []) {
-      const ts = row?.token_timestamp;
-      if (!ts) continue;
-      const dt = new Date(ts);
-      if (!Number.isFinite(dt.getTime())) continue;
-      const hour = dt.getUTCHours();
-      if (hour < 0 || hour > 23) continue;
-      const bucket = buckets2[hour];
-      bucket.total += toBigInt(row?.total_tokens);
-      bucket.input += toBigInt(row?.input_tokens);
-      bucket.cached += toBigInt(row?.cached_input_tokens);
-      bucket.output += toBigInt(row?.output_tokens);
-      bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-    }
     return json(
       {
         day: dayLabel,
-        data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterHour),
-        sync: buildSyncResponse(syncMeta)
+        data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterHour),
+        sync: buildSyncResponse(syncMeta2)
       },
       200
     );
@@ -522,41 +579,45 @@ module.exports = async function(request) {
   const endUtc = localDatePartsToUtc(addDatePartsDays(dayParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso);
+  const { hourKeys, buckets, bucketMap } = initHourlyBuckets(dayKey);
+  const syncMeta = await getSyncMeta({
+    edgeClient: auth.edgeClient,
+    userId: auth.userId,
+    startUtc,
+    endUtc,
+    tzContext
+  });
+  const { error } = await forEachPage({
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        const ts = row?.token_timestamp;
+        if (!ts) continue;
+        const dt = new Date(ts);
+        if (!Number.isFinite(dt.getTime())) continue;
+        const localParts = getLocalParts(dt, tzContext);
+        const localDay = formatDateParts(localParts);
+        if (localDay !== dayKey) continue;
+        const hour = Number(localParts.hour);
+        if (!Number.isFinite(hour) || hour < 0 || hour > 23) continue;
+        const bucket = buckets[hour];
+        bucket.total += toBigInt(row?.total_tokens);
+        bucket.input += toBigInt(row?.input_tokens);
+        bucket.cached += toBigInt(row?.cached_input_tokens);
+        bucket.output += toBigInt(row?.output_tokens);
+        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      }
+    }
+  });
   if (error) return json({ error: error.message }, 500);
-  const buckets = Array.from({ length: 24 }, () => ({
-    total: 0n,
-    input: 0n,
-    cached: 0n,
-    output: 0n,
-    reasoning: 0n
-  }));
-  for (const row of data || []) {
-    const ts = row?.token_timestamp;
-    if (!ts) continue;
-    const dt = new Date(ts);
-    if (!Number.isFinite(dt.getTime())) continue;
-    const localParts = getLocalParts(dt, tzContext);
-    const localDay = formatDateParts(localParts);
-    if (localDay !== dayKey) continue;
-    const hour = Number(localParts.hour);
-    if (!Number.isFinite(hour) || hour < 0 || hour > 23) continue;
-    const bucket = buckets[hour];
-    bucket.total += toBigInt(row?.total_tokens);
-    bucket.input += toBigInt(row?.input_tokens);
-    bucket.cached += toBigInt(row?.cached_input_tokens);
-    bucket.output += toBigInt(row?.output_tokens);
-    bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-  }
-  const dataRows = buckets.map((bucket, hour) => ({
-    hour: `${dayKey}T${String(hour).padStart(2, "0")}:00:00`,
-    total_tokens: bucket.total.toString(),
-    input_tokens: bucket.input.toString(),
-    cached_input_tokens: bucket.cached.toString(),
-    output_tokens: bucket.output.toString(),
-    reasoning_output_tokens: bucket.reasoning.toString()
-  }));
-  return json({ day: dayKey, data: dataRows, sync: { last_sync_at: null, min_interval_minutes: MIN_INTERVAL_MINUTES } }, 200);
+  return json(
+    {
+      day: dayKey,
+      data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterHour),
+      sync: buildSyncResponse(syncMeta)
+    },
+    200
+  );
 };
 function initHourlyBuckets(dayLabel) {
   const hourKeys = [];
@@ -623,14 +684,14 @@ async function tryAggregateHourlyTotals({ edgeClient, userId, startIso, endIso }
     return null;
   }
 }
-async function getSyncMeta({ edgeClient, userId, day }) {
+async function getSyncMeta({ edgeClient, userId, startUtc, endUtc, tzContext }) {
   const lastSyncAt = await getLastSyncAt({ edgeClient, userId });
   const lastSyncIso = normalizeIso(lastSyncAt);
-  if (!lastSyncIso || !(day instanceof Date)) {
+  if (!lastSyncIso || !(startUtc instanceof Date) || !(endUtc instanceof Date) || !Number.isFinite(startUtc.getTime()) || !Number.isFinite(endUtc.getTime())) {
     return { lastSyncAt: lastSyncIso, missingAfterHour: null };
   }
-  const dayStartMs = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate());
-  const dayEndMs = Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate() + 1);
+  const dayStartMs = startUtc.getTime();
+  const dayEndMs = endUtc.getTime();
   const lastMs = Date.parse(lastSyncIso);
   if (!Number.isFinite(lastMs)) {
     return { lastSyncAt: lastSyncIso, missingAfterHour: null };
@@ -641,7 +702,11 @@ async function getSyncMeta({ edgeClient, userId, day }) {
   if (lastMs >= dayEndMs) {
     return { lastSyncAt: lastSyncIso, missingAfterHour: 23 };
   }
-  const lastHour = new Date(lastMs).getUTCHours();
+  const lastParts = getLocalParts(new Date(lastMs), tzContext);
+  const lastHour = Number(lastParts?.hour);
+  if (!Number.isFinite(lastHour)) {
+    return { lastSyncAt: lastSyncIso, missingAfterHour: null };
+  }
   return { lastSyncAt: lastSyncIso, missingAfterHour: lastHour };
 }
 async function getLastSyncAt({ edgeClient, userId }) {

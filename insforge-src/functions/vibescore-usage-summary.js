@@ -16,6 +16,7 @@ const {
   parseDateParts
 } = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
+const { forEachPage } = require('../shared/pagination');
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -92,16 +93,41 @@ module.exports = async function(request) {
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  const { data, error } = await auth.edgeClient.database
-    .from('vibescore_tracker_events')
-    .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-    .eq('user_id', auth.userId)
-    .gte('token_timestamp', startIso)
-    .lt('token_timestamp', endIso);
+  let totalTokens = 0n;
+  let inputTokens = 0n;
+  let cachedInputTokens = 0n;
+  let outputTokens = 0n;
+  let reasoningOutputTokens = 0n;
+
+  const { error } = await forEachPage({
+    createQuery: () =>
+      auth.edgeClient.database
+        .from('vibescore_tracker_events')
+        .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+        .eq('user_id', auth.userId)
+        .gte('token_timestamp', startIso)
+        .lt('token_timestamp', endIso)
+        .order('token_timestamp', { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        totalTokens += toBigInt(row?.total_tokens);
+        inputTokens += toBigInt(row?.input_tokens);
+        cachedInputTokens += toBigInt(row?.cached_input_tokens);
+        outputTokens += toBigInt(row?.output_tokens);
+        reasoningOutputTokens += toBigInt(row?.reasoning_output_tokens);
+      }
+    }
+  });
 
   if (error) return json({ error: error.message }, 500);
 
-  const totals = sumEventRows(data || []);
+  const totals = {
+    total_tokens: totalTokens.toString(),
+    input_tokens: inputTokens.toString(),
+    cached_input_tokens: cachedInputTokens.toString(),
+    output_tokens: outputTokens.toString(),
+    reasoning_output_tokens: reasoningOutputTokens.toString()
+  };
 
   return json(
     {
@@ -115,30 +141,6 @@ module.exports = async function(request) {
 };
 
 function sumDailyRows(rows) {
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
-
-  for (const r of rows) {
-    totalTokens += toBigInt(r?.total_tokens);
-    inputTokens += toBigInt(r?.input_tokens);
-    cachedInputTokens += toBigInt(r?.cached_input_tokens);
-    outputTokens += toBigInt(r?.output_tokens);
-    reasoningOutputTokens += toBigInt(r?.reasoning_output_tokens);
-  }
-
-  return {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString()
-  };
-}
-
-function sumEventRows(rows) {
   let totalTokens = 0n;
   let inputTokens = 0n;
   let cachedInputTokens = 0n;

@@ -217,7 +217,7 @@ var require_date = __commonJS({
     function parseOffsetMinutes(raw) {
       if (raw == null || raw === "") return null;
       const s = String(raw).trim();
-      if (!/^-?\\d+$/.test(s)) return null;
+      if (!/^-?\d+$/.test(s)) return null;
       const v = Number(s);
       if (!Number.isFinite(v)) return null;
       if (v < -840 || v > 840) return null;
@@ -241,8 +241,11 @@ var require_date = __commonJS({
       if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
       return { timeZone: null, offsetMinutes: 0, source: "utc" };
     }
-    function getUsageTimeZoneContext2(_url) {
-      return normalizeTimeZone();
+    function getUsageTimeZoneContext2(url) {
+      if (!url || !url.searchParams) return normalizeTimeZone();
+      const tz = url.searchParams.get("tz");
+      const offset = url.searchParams.get("tz_offset_minutes");
+      return normalizeTimeZone(tz, offset);
     }
     function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
@@ -416,6 +419,47 @@ var require_numbers = __commonJS({
   }
 });
 
+// insforge-src/shared/pagination.js
+var require_pagination = __commonJS({
+  "insforge-src/shared/pagination.js"(exports2, module2) {
+    "use strict";
+    var MAX_PAGE_SIZE = 1e3;
+    function normalizePageSize(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
+      return Math.min(MAX_PAGE_SIZE, Math.floor(size));
+    }
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
+      if (typeof createQuery !== "function") {
+        throw new Error("createQuery must be a function");
+      }
+      if (typeof onPage !== "function") {
+        throw new Error("onPage must be a function");
+      }
+      const size = normalizePageSize(pageSize);
+      let offset = 0;
+      while (true) {
+        const query = createQuery();
+        if (!query || typeof query.range !== "function") {
+          const { data: data2, error: error2 } = await query;
+          if (error2) return { error: error2 };
+          const rows2 = Array.isArray(data2) ? data2 : [];
+          if (rows2.length) await onPage(rows2);
+          return { error: null };
+        }
+        const { data, error } = await query.range(offset, offset + size - 1);
+        if (error) return { error };
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length) await onPage(rows);
+        if (rows.length < size) break;
+        offset += size;
+      }
+      return { error: null };
+    }
+    module2.exports = { forEachPage: forEachPage2 };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-summary.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
@@ -430,6 +474,7 @@ var {
   parseDateParts
 } = require_date();
 var { toBigInt } = require_numbers();
+var { forEachPage } = require_pagination();
 module.exports = async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -465,14 +510,14 @@ module.exports = async function(request) {
         200
       );
     }
-    const { data: data2, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from).lte("day", to);
+    const { data, error: error2 } = await auth.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("day", from).lte("day", to);
     if (error2) return json({ error: error2.message }, 500);
-    const totals2 = sumDailyRows(data2 || []);
+    const totals2 = sumDailyRows(data || []);
     return json(
       {
         from,
         to,
-        days: (data2 || []).length,
+        days: (data || []).length,
         totals: totals2
       },
       200
@@ -486,9 +531,31 @@ module.exports = async function(request) {
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso);
+  let totalTokens = 0n;
+  let inputTokens = 0n;
+  let cachedInputTokens = 0n;
+  let outputTokens = 0n;
+  let reasoningOutputTokens = 0n;
+  const { error } = await forEachPage({
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        totalTokens += toBigInt(row?.total_tokens);
+        inputTokens += toBigInt(row?.input_tokens);
+        cachedInputTokens += toBigInt(row?.cached_input_tokens);
+        outputTokens += toBigInt(row?.output_tokens);
+        reasoningOutputTokens += toBigInt(row?.reasoning_output_tokens);
+      }
+    }
+  });
   if (error) return json({ error: error.message }, 500);
-  const totals = sumEventRows(data || []);
+  const totals = {
+    total_tokens: totalTokens.toString(),
+    input_tokens: inputTokens.toString(),
+    cached_input_tokens: cachedInputTokens.toString(),
+    output_tokens: outputTokens.toString(),
+    reasoning_output_tokens: reasoningOutputTokens.toString()
+  };
   return json(
     {
       from,
@@ -500,27 +567,6 @@ module.exports = async function(request) {
   );
 };
 function sumDailyRows(rows) {
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
-  for (const r of rows) {
-    totalTokens += toBigInt(r?.total_tokens);
-    inputTokens += toBigInt(r?.input_tokens);
-    cachedInputTokens += toBigInt(r?.cached_input_tokens);
-    outputTokens += toBigInt(r?.output_tokens);
-    reasoningOutputTokens += toBigInt(r?.reasoning_output_tokens);
-  }
-  return {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString()
-  };
-}
-function sumEventRows(rows) {
   let totalTokens = 0n;
   let inputTokens = 0n;
   let cachedInputTokens = 0n;

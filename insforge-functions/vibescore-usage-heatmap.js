@@ -217,7 +217,7 @@ var require_date = __commonJS({
     function parseOffsetMinutes(raw) {
       if (raw == null || raw === "") return null;
       const s = String(raw).trim();
-      if (!/^-?\\d+$/.test(s)) return null;
+      if (!/^-?\d+$/.test(s)) return null;
       const v = Number(s);
       if (!Number.isFinite(v)) return null;
       if (v < -840 || v > 840) return null;
@@ -241,8 +241,11 @@ var require_date = __commonJS({
       if (offsetMinutes != null) return { timeZone: null, offsetMinutes, source: "offset" };
       return { timeZone: null, offsetMinutes: 0, source: "utc" };
     }
-    function getUsageTimeZoneContext2(_url) {
-      return normalizeTimeZone();
+    function getUsageTimeZoneContext2(url) {
+      if (!url || !url.searchParams) return normalizeTimeZone();
+      const tz = url.searchParams.get("tz");
+      const offset = url.searchParams.get("tz_offset_minutes");
+      return normalizeTimeZone(tz, offset);
     }
     function isUtcTimeZone2(tzContext) {
       if (!tzContext) return true;
@@ -416,6 +419,47 @@ var require_numbers = __commonJS({
   }
 });
 
+// insforge-src/shared/pagination.js
+var require_pagination = __commonJS({
+  "insforge-src/shared/pagination.js"(exports2, module2) {
+    "use strict";
+    var MAX_PAGE_SIZE = 1e3;
+    function normalizePageSize(value) {
+      const size = Number(value);
+      if (!Number.isFinite(size) || size <= 0) return MAX_PAGE_SIZE;
+      return Math.min(MAX_PAGE_SIZE, Math.floor(size));
+    }
+    async function forEachPage2({ createQuery, pageSize, onPage }) {
+      if (typeof createQuery !== "function") {
+        throw new Error("createQuery must be a function");
+      }
+      if (typeof onPage !== "function") {
+        throw new Error("onPage must be a function");
+      }
+      const size = normalizePageSize(pageSize);
+      let offset = 0;
+      while (true) {
+        const query = createQuery();
+        if (!query || typeof query.range !== "function") {
+          const { data: data2, error: error2 } = await query;
+          if (error2) return { error: error2 };
+          const rows2 = Array.isArray(data2) ? data2 : [];
+          if (rows2.length) await onPage(rows2);
+          return { error: null };
+        }
+        const { data, error } = await query.range(offset, offset + size - 1);
+        if (error) return { error };
+        const rows = Array.isArray(data) ? data : [];
+        if (rows.length) await onPage(rows);
+        if (rows.length < size) break;
+        offset += size;
+      }
+      return { error: null };
+    }
+    module2.exports = { forEachPage: forEachPage2 };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-heatmap.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserId } = require_auth();
@@ -436,6 +480,7 @@ var {
   parseUtcDateString
 } = require_date();
 var { toBigInt } = require_numbers();
+var { forEachPage } = require_pagination();
 module.exports = async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -463,10 +508,10 @@ module.exports = async function(request) {
     const baseUrl2 = getBaseUrl();
     const auth2 = await getEdgeClientAndUserId({ baseUrl: baseUrl2, bearer });
     if (!auth2.ok) return json({ error: "Unauthorized" }, 401);
-    const { data: data2, error: error2 } = await auth2.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens").eq("user_id", auth2.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
+    const { data, error: error2 } = await auth2.edgeClient.database.from("vibescore_tracker_daily").select("day,total_tokens").eq("user_id", auth2.userId).gte("day", from2).lte("day", to2).order("day", { ascending: true });
     if (error2) return json({ error: error2.message }, 500);
     const valuesByDay2 = /* @__PURE__ */ new Map();
-    for (const row of Array.isArray(data2) ? data2 : []) {
+    for (const row of Array.isArray(data) ? data : []) {
       const day = typeof row?.day === "string" ? row.day : null;
       if (!day) continue;
       valuesByDay2.set(day, toBigInt(row?.total_tokens));
@@ -549,18 +594,22 @@ module.exports = async function(request) {
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserId({ baseUrl, bearer });
   if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const { data, error } = await auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso);
-  if (error) return json({ error: error.message }, 500);
   const valuesByDay = /* @__PURE__ */ new Map();
-  for (const row of Array.isArray(data) ? data : []) {
-    const ts = row?.token_timestamp;
-    if (!ts) continue;
-    const dt = new Date(ts);
-    if (!Number.isFinite(dt.getTime())) continue;
-    const key = formatLocalDateKey(dt, tzContext);
-    const prev = valuesByDay.get(key) || 0n;
-    valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
-  }
+  const { error } = await forEachPage({
+    createQuery: () => auth.edgeClient.database.from("vibescore_tracker_events").select("token_timestamp,total_tokens").eq("user_id", auth.userId).gte("token_timestamp", startIso).lt("token_timestamp", endIso).order("token_timestamp", { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        const ts = row?.token_timestamp;
+        if (!ts) continue;
+        const dt = new Date(ts);
+        if (!Number.isFinite(dt.getTime())) continue;
+        const key = formatLocalDateKey(dt, tzContext);
+        const prev = valuesByDay.get(key) || 0n;
+        valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
+      }
+    }
+  });
+  if (error) return json({ error: error.message }, 500);
   const nz = [];
   let activeDays = 0;
   for (let i = 0; i < weeks * 7; i++) {

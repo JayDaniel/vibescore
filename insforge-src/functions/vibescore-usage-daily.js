@@ -17,6 +17,7 @@ const {
   parseDateParts
 } = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
+const { forEachPage } = require('../shared/pagination');
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -65,15 +66,6 @@ module.exports = async function(request) {
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
 
-  const { data, error } = await auth.edgeClient.database
-    .from('vibescore_tracker_events')
-    .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-    .eq('user_id', auth.userId)
-    .gte('token_timestamp', startIso)
-    .lt('token_timestamp', endIso);
-
-  if (error) return json({ error: error.message }, 500);
-
   const buckets = new Map(
     dayKeys.map((day) => [
       day,
@@ -87,20 +79,34 @@ module.exports = async function(request) {
     ])
   );
 
-  for (const row of data || []) {
-    const ts = row?.token_timestamp;
-    if (!ts) continue;
-    const dt = new Date(ts);
-    if (!Number.isFinite(dt.getTime())) continue;
-    const day = formatLocalDateKey(dt, tzContext);
-    const bucket = buckets.get(day);
-    if (!bucket) continue;
-    bucket.total += toBigInt(row?.total_tokens);
-    bucket.input += toBigInt(row?.input_tokens);
-    bucket.cached += toBigInt(row?.cached_input_tokens);
-    bucket.output += toBigInt(row?.output_tokens);
-    bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
-  }
+  const { error } = await forEachPage({
+    createQuery: () =>
+      auth.edgeClient.database
+        .from('vibescore_tracker_events')
+        .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+        .eq('user_id', auth.userId)
+        .gte('token_timestamp', startIso)
+        .lt('token_timestamp', endIso)
+        .order('token_timestamp', { ascending: true }),
+    onPage: (rows) => {
+      for (const row of rows) {
+        const ts = row?.token_timestamp;
+        if (!ts) continue;
+        const dt = new Date(ts);
+        if (!Number.isFinite(dt.getTime())) continue;
+        const day = formatLocalDateKey(dt, tzContext);
+        const bucket = buckets.get(day);
+        if (!bucket) continue;
+        bucket.total += toBigInt(row?.total_tokens);
+        bucket.input += toBigInt(row?.input_tokens);
+        bucket.cached += toBigInt(row?.cached_input_tokens);
+        bucket.output += toBigInt(row?.output_tokens);
+        bucket.reasoning += toBigInt(row?.reasoning_output_tokens);
+      }
+    }
+  });
+
+  if (error) return json({ error: error.message }, 500);
 
   const rows = dayKeys.map((day) => {
     const bucket = buckets.get(day);
