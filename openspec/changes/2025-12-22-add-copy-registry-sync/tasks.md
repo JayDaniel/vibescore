@@ -21,7 +21,7 @@
 - [x] 5.1 Update `docs/copy-registry.md` with sync workflow and safety notes.
 
 ## 6. Verification
-- [ ] 6.1 `node scripts/copy-sync.cjs pull --dry-run`
-- [ ] 6.2 `node scripts/copy-sync.cjs pull --apply`
-- [ ] 6.3 `node scripts/copy-sync.cjs push --dry-run`
-- [ ] 6.4 `node scripts/copy-sync.cjs push --confirm --push-remote`
+- [x] 6.1 `node scripts/copy-sync.cjs pull --dry-run`
+- [x] 6.2 `node scripts/copy-sync.cjs pull --apply`
+- [x] 6.3 `node scripts/copy-sync.cjs push --dry-run`
+- [x] 6.4 `node scripts/copy-sync.cjs push --confirm --push-remote`
