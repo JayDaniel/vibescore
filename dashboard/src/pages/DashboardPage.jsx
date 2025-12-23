@@ -4,7 +4,7 @@ import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
 import { getRangeForPeriod } from "../lib/date-range.js";
-import { DAILY_SORT_COLUMNS, sortDailyRows } from "../lib/daily.js";
+import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
 import { formatUsdCurrency, toDisplayNumber } from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
@@ -29,6 +29,8 @@ import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
 import { isMockEnabled } from "../lib/mock-data.js";
 
 const PERIODS = ["day", "week", "month", "total"];
+const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
+const DETAILS_PAGE_SIZE = 12;
 
 export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [booted, setBooted] = useState(false);
@@ -141,15 +143,72 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     tzOffsetMinutes,
   });
 
+  const detailsDateKey = useMemo(() => {
+    if (period === "day") return "hour";
+    if (period === "total") return "month";
+    return "day";
+  }, [period]);
+  const detailsColumns = useMemo(
+    () => getDetailsSortColumns(detailsDateKey),
+    [detailsDateKey]
+  );
   const [sort, setSort] = useState(() => ({ key: "day", dir: "desc" }));
-  const sortedDaily = useMemo(
-    () => sortDailyRows(visibleDaily, sort),
-    [visibleDaily, sort]
+  useEffect(() => {
+    setSort((prev) => {
+      if (!DETAILS_DATE_KEYS.has(prev.key)) return prev;
+      if (prev.key === detailsDateKey) return prev;
+      return { key: detailsDateKey, dir: prev.dir };
+    });
+  }, [detailsDateKey]);
+  const effectiveSort = useMemo(() => {
+    if (DETAILS_DATE_KEYS.has(sort.key) && sort.key !== detailsDateKey) {
+      return { ...sort, key: detailsDateKey };
+    }
+    return sort;
+  }, [detailsDateKey, sort]);
+  const detailsRows = useMemo(() => {
+    if (period === "day") {
+      return Array.isArray(trendRows)
+        ? trendRows.filter((row) => row?.hour && !row?.future)
+        : [];
+    }
+    if (period === "total") {
+      return Array.isArray(trendRows)
+        ? trendRows.filter((row) => row?.month && !row?.future)
+        : [];
+    }
+    return visibleDaily;
+  }, [period, trendRows, visibleDaily]);
+  const sortedDetails = useMemo(
+    () => sortDailyRows(detailsRows, effectiveSort),
+    [detailsRows, effectiveSort]
   );
-  const hasDailyActual = useMemo(
-    () => visibleDaily.some((row) => !row?.missing && !row?.future),
-    [visibleDaily]
+  const hasDetailsActual = useMemo(
+    () => detailsRows.some((row) => !row?.missing && !row?.future),
+    [detailsRows]
   );
+  const detailsPageCount = useMemo(() => {
+    if (period !== "total") return 1;
+    const count = Math.ceil(sortedDetails.length / DETAILS_PAGE_SIZE);
+    return count > 0 ? count : 1;
+  }, [period, sortedDetails.length]);
+  const [detailsPage, setDetailsPage] = useState(0);
+  useEffect(() => {
+    if (period !== "total") {
+      setDetailsPage(0);
+      return;
+    }
+    setDetailsPage((prev) => Math.min(prev, detailsPageCount - 1));
+  }, [detailsPageCount, period]);
+  useEffect(() => {
+    if (period !== "total") return;
+    setDetailsPage(0);
+  }, [period, sort.dir, sort.key]);
+  const pagedDetails = useMemo(() => {
+    if (period !== "total") return sortedDetails;
+    const start = detailsPage * DETAILS_PAGE_SIZE;
+    return sortedDetails.slice(start, start + DETAILS_PAGE_SIZE);
+  }, [detailsPage, period, sortedDetails]);
   const trendRowsForDisplay = useMemo(() => {
     if (useDailyTrend) return daily;
     if (period === "day") {
@@ -160,12 +219,25 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const trendFromForDisplay = useDailyTrend ? from : trendFrom;
   const trendToForDisplay = useDailyTrend ? to : trendTo;
 
-  function renderDailyCell(row, key) {
+  function renderDetailCell(row, key) {
     if (row?.future) return "—";
     if (row?.missing) {
       return key === "total_tokens" ? "未同步" : "—";
     }
     return toDisplayNumber(row?.[key]);
+  }
+
+  function renderDetailDate(row) {
+    const raw = row?.[detailsDateKey];
+    if (raw == null) return "";
+    const value = String(raw);
+    if (detailsDateKey === "hour") {
+      const [datePart, timePart] = value.split("T");
+      if (datePart && timePart) {
+        return `${datePart} ${timePart.slice(0, 5)}`;
+      }
+    }
+    return value;
   }
 
   function toggleSort(key) {
@@ -176,13 +248,13 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   }
 
   function ariaSortFor(key) {
-    if (sort.key !== key) return "none";
-    return sort.dir === "asc" ? "ascending" : "descending";
+    if (effectiveSort.key !== key) return "none";
+    return effectiveSort.dir === "asc" ? "ascending" : "descending";
   }
 
   function sortIconFor(key) {
-    if (sort.key !== key) return "";
-    return sort.dir === "asc" ? "^" : "v";
+    if (effectiveSort.key !== key) return copy("daily.sort.indicator");
+    return effectiveSort.dir === "asc" ? "▲" : "▼";
   }
 
   const streakDays = useMemo(() => {
@@ -522,89 +594,119 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
               showTimeZoneLabel={false}
             />
 
-            {period !== "total" ? (
-              <AsciiBox
-                title={copy("dashboard.daily.title")}
-                subtitle={copy("dashboard.daily.subtitle")}
-              >
-                {!hasDailyActual ? (
-                  <div className="text-[10px] opacity-40 mb-2">
-                    {dailyEmptyPrefix}
-                    <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                      {installSyncCmd}
-                    </code>
-                    {dailyEmptySuffix}
-                  </div>
-                ) : null}
-                <div
-                  className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
-                  role="region"
-                  aria-label={copy("daily.table.aria_label")}
-                  tabIndex={0}
-                >
-                  <table className="w-full border-collapse">
-                    <thead className="sticky top-0 bg-black/90">
-                      <tr className="border-b border-[#00FF41]/10">
-                        {DAILY_SORT_COLUMNS.map((c) => (
-                          <th
-                            key={c.key}
-                            aria-sort={ariaSortFor(c.key)}
-                            className="text-left p-0"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => toggleSort(c.key)}
-                              title={c.title}
-                              className="w-full px-3 py-2 text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30"
-                            >
-                              <span className="inline-flex items-center gap-2">
-                                <span>{c.label}</span>
-                                <span className="opacity-40">
-                                  {sortIconFor(c.key)}
-                                </span>
-                              </span>
-                            </button>
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sortedDaily.map((r) => (
-                        <tr
-                          key={String(r.day)}
-                          className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
-                            r.missing
-                              ? "text-[#00FF41]/50"
-                              : r.future
-                              ? "text-[#00FF41]/30"
-                              : ""
-                          }`}
-                        >
-                          <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
-                            {String(r.day)}
-                          </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
-                            {renderDailyCell(r, "total_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
-                            {renderDailyCell(r, "input_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
-                            {renderDailyCell(r, "output_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
-                            {renderDailyCell(r, "cached_input_tokens")}
-                          </td>
-                          <td className="px-3 py-2 text-[10px] font-mono">
-                            {renderDailyCell(r, "reasoning_output_tokens")}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            <AsciiBox
+              title={copy("dashboard.daily.title")}
+              subtitle={copy("dashboard.daily.subtitle")}
+            >
+              {!hasDetailsActual ? (
+                <div className="text-[10px] opacity-40 mb-2">
+                  {dailyEmptyPrefix}
+                  <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
+                    {installSyncCmd}
+                  </code>
+                  {dailyEmptySuffix}
                 </div>
-              </AsciiBox>
-            ) : null}
+              ) : null}
+              <div
+                className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
+                role="region"
+                aria-label={copy("daily.table.aria_label")}
+                tabIndex={0}
+              >
+                <table className="w-full border-collapse">
+                  <thead className="sticky top-0 bg-black/90">
+                    <tr className="border-b border-[#00FF41]/10">
+                      {detailsColumns.map((c) => (
+                        <th
+                          key={c.key}
+                          aria-sort={ariaSortFor(c.key)}
+                          className="text-left p-0"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => toggleSort(c.key)}
+                            title={c.title}
+                            className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
+                          >
+                            <span className="inline-flex items-center gap-2">
+                              <span>{c.label}</span>
+                              <span className="opacity-40">
+                                {sortIconFor(c.key)}
+                              </span>
+                            </span>
+                          </button>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pagedDetails.map((r) => (
+                      <tr
+                        key={String(
+                          r?.[detailsDateKey] || r?.day || r?.hour || r?.month || ""
+                        )}
+                        className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
+                          r.missing
+                            ? "text-[#00FF41]/50"
+                            : r.future
+                            ? "text-[#00FF41]/30"
+                            : ""
+                        }`}
+                      >
+                        <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
+                          {renderDetailDate(r)}
+                        </td>
+                        <td className="px-3 py-2 text-[10px] font-mono">
+                          {renderDetailCell(r, "total_tokens")}
+                        </td>
+                        <td className="px-3 py-2 text-[10px] font-mono">
+                          {renderDetailCell(r, "input_tokens")}
+                        </td>
+                        <td className="px-3 py-2 text-[10px] font-mono">
+                          {renderDetailCell(r, "output_tokens")}
+                        </td>
+                        <td className="px-3 py-2 text-[10px] font-mono">
+                          {renderDetailCell(r, "cached_input_tokens")}
+                        </td>
+                        <td className="px-3 py-2 text-[10px] font-mono">
+                          {renderDetailCell(r, "reasoning_output_tokens")}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              {period === "total" && detailsPageCount > 1 ? (
+                <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
+                  <MatrixButton
+                    type="button"
+                    onClick={() =>
+                      setDetailsPage((prev) => Math.max(0, prev - 1))
+                    }
+                    disabled={detailsPage === 0}
+                  >
+                    {copy("details.pagination.prev")}
+                  </MatrixButton>
+                  <span className="opacity-50">
+                    {copy("details.pagination.page", {
+                      page: detailsPage + 1,
+                      total: detailsPageCount,
+                    })}
+                  </span>
+                  <MatrixButton
+                    type="button"
+                    onClick={() =>
+                      setDetailsPage((prev) =>
+                        Math.min(detailsPageCount - 1, prev + 1)
+                      )
+                    }
+                    disabled={detailsPage + 1 >= detailsPageCount}
+                  >
+                    {copy("details.pagination.next")}
+                  </MatrixButton>
+                </div>
+              ) : null}
+            </AsciiBox>
           </div>
         </div>
       )}

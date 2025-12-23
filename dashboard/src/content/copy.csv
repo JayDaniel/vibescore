@@ -199,6 +199,10 @@ daily.sort.cached.label,dashboard,DashboardPage,DailyTable,sort_label,"Cached",,
 daily.sort.cached.title,dashboard,DashboardPage,DailyTable,sort_title,"Sort by Cached input",,active
 daily.sort.reasoning.label,dashboard,DashboardPage,DailyTable,sort_label,"Reasoning",,active
 daily.sort.reasoning.title,dashboard,DashboardPage,DailyTable,sort_title,"Sort by Reasoning output",,active
+daily.sort.indicator,dashboard,DashboardPage,DailyTable,sort_indicator,"▲▼",,active
+details.pagination.prev,dashboard,DashboardPage,DailyTable,pagination_prev,"Prev",,active
+details.pagination.next,dashboard,DashboardPage,DailyTable,pagination_next,"Next",,active
+details.pagination.page,dashboard,DashboardPage,DailyTable,pagination_label,"Page {{page}}/{{total}}",,active
 
 
 dashboard.session.label,dashboard,DashboardPage,Header,session_label,"Session_Time:",,active
