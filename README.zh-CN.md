@@ -52,6 +52,24 @@ npx --yes @vibescore/tracker sync
 npx --yes @vibescore/tracker status
 ```
 
+## 🧰 常见问题
+
+### Streak 显示 0 天但总量正常
+
+- Streak 的口径是“从今天开始连续使用的天数”，如果今天的 total 为 0，streak 就是 0。
+- 如果你确认应该有 streak，请清理本地缓存并重新登录：
+
+```js
+localStorage.removeItem('vibescore.dashboard.auth.v1');
+Object.keys(localStorage)
+  .filter((k) => k.startsWith('vibescore.heatmap.'))
+  .forEach((k) => localStorage.removeItem(k));
+location.reload();
+```
+
+- 刷新后重新走一遍 `/connect` 登录流程。
+- 说明：Dashboard 不使用 `insforge-auth-token`，实际存储在 `vibescore.dashboard.auth.v1`。
+
 ## 🏗️ 系统架构
 
 ```mermaid

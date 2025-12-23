@@ -52,6 +52,24 @@ npx --yes @vibescore/tracker sync
 npx --yes @vibescore/tracker status
 ```
 
+## 🧰 Troubleshooting
+
+### Streak shows 0 days while totals look correct
+
+- Streak is defined as consecutive days ending today. If today's total is 0, streak will be 0.
+- If you expect a non-zero streak, clear cached auth/heatmap data and sign in again:
+
+```js
+localStorage.removeItem('vibescore.dashboard.auth.v1');
+Object.keys(localStorage)
+  .filter((k) => k.startsWith('vibescore.heatmap.'))
+  .forEach((k) => localStorage.removeItem(k));
+location.reload();
+```
+
+- Complete the `/connect` login flow again after reload.
+- Note: `insforge-auth-token` is not used by the dashboard; use `vibescore.dashboard.auth.v1`.
+
 ## 🏗️ Architecture
 
 ```mermaid
