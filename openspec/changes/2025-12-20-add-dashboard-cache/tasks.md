@@ -5,5 +5,5 @@
 - [x] 1.4 Ensure cache is isolated per user (no cross-user leakage).
 
 ## 2. Verification
-- [ ] 2.1 Manual: load dashboard online, then simulate backend failure and confirm cached data remains visible with stale label.
-- [ ] 2.2 Manual: sign out or switch user, confirm cache does not leak between identities.
+- [x] 2.1 Manual: load dashboard online, then simulate backend failure and confirm cached data remains visible with stale label.
+- [x] 2.2 Manual: sign out or switch user, confirm cache does not leak between identities.

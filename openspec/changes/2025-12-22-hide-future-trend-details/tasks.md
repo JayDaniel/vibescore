@@ -4,6 +4,6 @@
 - [x] 1.3 未来桶标记覆盖已有行（避免未来 0 值被当成真实数据）。
 
 ## 2. Verification
-- [ ] 2.1 Dashboard week/month：TREND 不显示未来桶（无空线/零值）。
-- [ ] 2.2 DETAILS 不显示未来日期行。
-- [ ] 2.3 `?mock=1` 下验证行为一致。
+- [x] 2.1 Dashboard week/month：TREND 不显示未来桶（无空线/零值）。
+- [x] 2.2 DETAILS 不显示未来日期行。
+- [x] 2.3 `?mock=1` 下验证行为一致。

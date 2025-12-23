@@ -26,17 +26,17 @@
 ## 5. Validation & acceptance
 - [x] 5.1 Run `npm test`.
 - [x] 5.2 Run `npm --prefix dashboard run build`.
-- [ ] 5.3 Manual: sign-in flow works; usage summary/daily/heatmap load without regression.
+- [x] 5.3 Manual: sign-in flow works; usage summary/daily/heatmap load without regression.
 
 ## 6. Docs & freeze
 - [x] 6.1 Update docs/config notes if new env vars are required.
-- [ ] 6.2 Record freeze commit hash and update `tasks.md` statuses.
+- [x] 6.2 Record freeze commit hash and update `tasks.md` statuses.
 
 ## Milestones & Acceptance
 - [x] M1 SDK lock-in: both packages depend on identical `@insforge/sdk` version; SDK clients compile.
-- [ ] M2 CLI migration: CLI requests all routed via SDK; tests pass.
+- [x] M2 CLI migration: CLI requests all routed via SDK; tests pass.
 - [x] M3 Dashboard migration: all data fetching via SDK; dashboard build passes.
-- [ ] M4 Cleanup & freeze: old HTTP wrappers removed or unused; docs updated; freeze hash recorded.
+- [x] M4 Cleanup & freeze: old HTTP wrappers removed or unused; docs updated; freeze hash recorded.
 
 证据：
 - 2025-12-22 `npm --prefix dashboard run build` 通过。

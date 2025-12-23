@@ -15,7 +15,7 @@
 
 ## 4. Dashboard UI
 - [x] 4.1 Respect `missing` in day trend (dashed markers + tooltip "未同步")
-- [ ] 4.2 Add UI indicator for sync freshness (optional, low-visibility)
+- [x] 4.2 Add UI indicator for sync freshness (optional, low-visibility)
 
 ## 5. Docs + Validation
 - [x] 5.1 Update `BACKEND_API.md` for new endpoint/response fields

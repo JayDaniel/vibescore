@@ -1,5 +1,5 @@
 ## 1. Investigation
-- [ ] 1.1 统计当前 `period=week|month` 时的 network 请求数量（baseline 证明重复调用）。
+- [x] 1.1 统计当前 `period=week|month` 时的 network 请求数量（baseline 证明重复调用）。
 
 ## 2. Implementation
 - [x] 2.1 新增共享层：统一拉取 `usage-daily` 并派生 `summary` 与 `trend`。

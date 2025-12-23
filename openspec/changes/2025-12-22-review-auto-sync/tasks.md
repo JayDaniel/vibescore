@@ -9,8 +9,8 @@
 - [x] 2.3 增加 `status` 的 auto sync 健康度摘要输出。
 
 ## 3. Verification
-- [ ] 3.1 用本地一次 notify 触发验证 runbook。
-- [ ] 3.2 记录证据与结论。
+- [x] 3.1 用本地一次 notify 触发验证 runbook。
+- [x] 3.2 记录证据与结论。
 
 ### Evidence
 - 运行 `node bin/tracker.js status --diagnostics`（2025-12-22T21:52:42Z）结果摘要：\n  - `notify.codex_notify_configured = true`\n  - `notify.last_notify = 2025-12-22T21:51:49.206Z`\n  - `notify.last_notify_triggered_sync = 2025-12-22T21:51:49.207Z`\n  - `queue.pending_bytes = 0`\n  - `upload.last_success_at = 2025-12-22T21:42:37.997Z`\n  - `upload.next_allowed_after = 2025-12-22T21:52:42.118Z`\n  - `upload.backoff_until = null`

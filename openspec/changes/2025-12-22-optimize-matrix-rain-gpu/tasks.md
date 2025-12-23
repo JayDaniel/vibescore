@@ -5,6 +5,6 @@
 - [x] 1.4 处理 `visibilitychange` 与 `prefers-reduced-motion`，隐藏/降噪时暂停渲染。
 
 ## 2. Verification
-- [ ] 2.1 Chrome Task Manager 观测 GPU process：前台静置 60s 平均 <2%。
-- [ ] 2.2 验证动画仍为动态效果（可见持续下落与尾迹）。
-- [ ] 2.3 切到后台后不再调度帧，回到前台恢复。
+- [x] 2.1 Chrome Task Manager 观测 GPU process：前台静置 60s 平均 <2%。
+- [x] 2.2 验证动画仍为动态效果（可见持续下落与尾迹）。
+- [x] 2.3 切到后台后不再调度帧，回到前台恢复。

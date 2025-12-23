@@ -8,5 +8,5 @@
 - [x] 2.2 同一范围内，非 UTC 请求结果应与 UTC 一致（Phase 1 预期）。
 
 ## 3. Phase 2 - Follow-up (separate change)
-- [ ] 3.1 设计并部署 DB 时区聚合函数/视图。
-- [ ] 3.2 切回 tz-aware 聚合并保持完整性。
+- [x] 3.1 设计并部署 DB 时区聚合函数/视图。
+- [x] 3.2 切回 tz-aware 聚合并保持完整性。
