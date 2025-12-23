@@ -31,6 +31,9 @@ body {
   .glow-text {
     text-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
   }
+  .glow-text-strong {
+    text-shadow: 0 0 20px rgba(0, 255, 65, 0.5);
+  }
   .shadow-glow {
     filter: drop-shadow(0 0 2px rgba(0, 255, 65, 0.3));
   }

@@ -102,9 +102,21 @@ export function UsagePanel({
             <div className="text-[10px] uppercase opacity-50 tracking-widest mb-1">
               {summaryLabel}
             </div>
-            <div className="text-5xl font-black font-mono text-white glow-text tracking-tighter">
+            <div className="text-5xl font-black font-mono text-white glow-text-strong tracking-tighter">
               {summaryValue && summaryValue !== "—" ? (
-                <DecodingText text={summaryValue} />
+                <span className="relative inline-block overflow-hidden leading-none">
+                  <span className="relative z-10">
+                    <DecodingText text={summaryValue} />
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 matrix-scanlines opacity-40 mix-blend-screen pointer-events-none"
+                  />
+                  <span
+                    aria-hidden="true"
+                    className="absolute inset-0 matrix-scan-sweep opacity-30 mix-blend-screen pointer-events-none"
+                  />
+                </span>
               ) : (
                 summaryValue
               )}
