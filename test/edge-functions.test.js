@@ -262,6 +262,91 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   assert.equal(serviceClientCall.anonKey, ANON_KEY);
 });
 
+test('vibescore-ingest accepts wrapped payload with data.hourly', async () => {
+  const fn = require('../insforge-functions/vibescore-ingest');
+
+  const calls = [];
+  const fetchCalls = [];
+
+  const tokenRow = {
+    id: 'token-id',
+    user_id: '33333333-3333-3333-3333-333333333333',
+    device_id: '44444444-4444-4444-4444-444444444444',
+    revoked_at: null
+  };
+
+  function from(table) {
+    if (table === 'vibescore_tracker_device_tokens') {
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: tokenRow, error: null })
+          })
+        }),
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    if (table === 'vibescore_tracker_devices') {
+      return {
+        update: () => ({ eq: async () => ({ error: null }) })
+      };
+    }
+
+    throw new Error(`Unexpected table: ${table}`);
+  }
+
+  globalThis.createClient = (args) => {
+    calls.push(args);
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: { from } };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  globalThis.fetch = async (url, init) => {
+    fetchCalls.push({ url, init });
+    const u = new URL(url);
+
+    if (u.pathname.endsWith('/api/database/records/vibescore_tracker_hourly')) {
+      return new Response(JSON.stringify([{ hour_start: '2025-12-17T00:00:00.000Z' }]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    return new Response('not found', { status: 404 });
+  };
+
+  const deviceToken = 'device_token_test';
+  const bucket = {
+    hour_start: new Date('2025-12-17T00:00:00.000Z').toISOString(),
+    input_tokens: 1,
+    cached_input_tokens: 0,
+    output_tokens: 2,
+    reasoning_output_tokens: 0,
+    total_tokens: 3
+  };
+
+  const req = new Request('http://localhost/functions/vibescore-ingest', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
+    body: JSON.stringify({ data: { hourly: [bucket] } })
+  });
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const data = await res.json();
+  assert.deepEqual(data, { success: true, inserted: 1, skipped: 0 });
+  assert.equal(fetchCalls.length, 1);
+  const postCall = fetchCalls[0];
+  assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
+
+  const serviceClientCall = calls.find((c) => c && c.edgeFunctionToken === SERVICE_ROLE_KEY);
+  assert.ok(serviceClientCall, 'service client not created');
+});
+
 test('vibescore-ingest works without serviceRoleKey via anonKey records API', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,

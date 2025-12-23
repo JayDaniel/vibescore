@@ -118,6 +118,7 @@ Response:
 Notes:
 - `hour_start` must be a UTC half-hour boundary ISO timestamp (`:00` or `:30`).
 - Uploads are upserts keyed by `user_id + device_id + hour_start`.
+- Backward compatibility: `{ "data": { "hourly": [...] } }` is accepted, but `{ "hourly": [...] }` remains canonical.
 
 ---
 

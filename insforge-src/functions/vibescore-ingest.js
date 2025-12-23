@@ -332,6 +332,9 @@ function normalizeHourly(data) {
   if (data && typeof data === 'object') {
     if (Array.isArray(data.hourly)) return data.hourly;
     if (Array.isArray(data.data)) return data.data;
+    if (data.data && typeof data.data === 'object' && Array.isArray(data.data.hourly)) {
+      return data.data.hourly;
+    }
   }
   return null;
 }
