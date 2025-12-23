@@ -40,6 +40,10 @@ export function UsagePanel({
     breakdown && breakdown.length
       ? breakdown
       : [
+          {
+            key: copy("usage.metric.total_cost"),
+            label: copy("usage.metric.total_cost"),
+          },
           { key: copy("usage.metric.input"), label: copy("usage.metric.input") },
           { key: copy("usage.metric.output"), label: copy("usage.metric.output") },
           { key: copy("usage.metric.cached_input"), label: copy("usage.metric.cached_short") },

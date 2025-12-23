@@ -8,7 +8,6 @@ const { getBearerToken, getEdgeClientAndUserId } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const {
   addDatePartsDays,
-  isUtcTimeZone,
   getUsageTimeZoneContext,
   listDateStrings,
   localDatePartsToUtc,
@@ -17,6 +16,12 @@ const {
 } = require('../shared/date');
 const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
+const {
+  buildPricingMetadata,
+  computeUsageCost,
+  formatUsdFromMicros,
+  getDefaultPricingProfile
+} = require('../shared/pricing');
 
 module.exports = async function(request) {
   const opt = handleOptions(request);
@@ -40,48 +45,6 @@ module.exports = async function(request) {
     tzContext
   );
 
-  if (isUtcTimeZone(tzContext)) {
-    const aggregate = await tryAggregateDailyTotals({
-      edgeClient: auth.edgeClient,
-      userId: auth.userId,
-      from,
-      to
-    });
-
-    if (aggregate) {
-      return json(
-        {
-          from,
-          to,
-          days: aggregate.days,
-          totals: aggregate.totals
-        },
-        200
-      );
-    }
-
-    const { data, error } = await auth.edgeClient.database
-      .from('vibescore_tracker_daily')
-      .select('day,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
-      .eq('user_id', auth.userId)
-      .gte('day', from)
-      .lte('day', to);
-
-    if (error) return json({ error: error.message }, 500);
-
-    const totals = sumDailyRows(data || []);
-
-    return json(
-      {
-        from,
-        to,
-        days: (data || []).length,
-        totals
-      },
-      200
-    );
-  }
-
   const dayKeys = listDateStrings(from, to);
 
   const startParts = parseDateParts(from);
@@ -102,12 +65,12 @@ module.exports = async function(request) {
   const { error } = await forEachPage({
     createQuery: () =>
       auth.edgeClient.database
-        .from('vibescore_tracker_events')
-        .select('token_timestamp,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+        .from('vibescore_tracker_hourly')
+        .select('hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
         .eq('user_id', auth.userId)
-        .gte('token_timestamp', startIso)
-        .lt('token_timestamp', endIso)
-        .order('token_timestamp', { ascending: true }),
+        .gte('hour_start', startIso)
+        .lt('hour_start', endIso)
+        .order('hour_start', { ascending: true }),
     onPage: (rows) => {
       for (const row of rows) {
         totalTokens += toBigInt(row?.total_tokens);
@@ -121,12 +84,25 @@ module.exports = async function(request) {
 
   if (error) return json({ error: error.message }, 500);
 
+  const pricingProfile = getDefaultPricingProfile();
+  const cost = computeUsageCost(
+    {
+      total_tokens: totalTokens,
+      input_tokens: inputTokens,
+      cached_input_tokens: cachedInputTokens,
+      output_tokens: outputTokens,
+      reasoning_output_tokens: reasoningOutputTokens
+    },
+    pricingProfile
+  );
+
   const totals = {
     total_tokens: totalTokens.toString(),
     input_tokens: inputTokens.toString(),
     cached_input_tokens: cachedInputTokens.toString(),
     output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString()
+    reasoning_output_tokens: reasoningOutputTokens.toString(),
+    total_cost_usd: formatUsdFromMicros(cost.cost_micros)
   };
 
   return json(
@@ -134,70 +110,12 @@ module.exports = async function(request) {
       from,
       to,
       days: dayKeys.length,
-      totals
+      totals,
+      pricing: buildPricingMetadata({
+        profile: cost.profile,
+        pricingMode: cost.pricing_mode
+      })
     },
     200
   );
 };
-
-function sumDailyRows(rows) {
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
-
-  for (const r of rows) {
-    totalTokens += toBigInt(r?.total_tokens);
-    inputTokens += toBigInt(r?.input_tokens);
-    cachedInputTokens += toBigInt(r?.cached_input_tokens);
-    outputTokens += toBigInt(r?.output_tokens);
-    reasoningOutputTokens += toBigInt(r?.reasoning_output_tokens);
-  }
-
-  return {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString()
-  };
-}
-
-async function tryAggregateDailyTotals({ edgeClient, userId, from, to }) {
-  try {
-    const { data, error } = await edgeClient.database
-      .from('vibescore_tracker_daily')
-      .select(
-        'days:count(),sum_total_tokens:sum(total_tokens),sum_input_tokens:sum(input_tokens),sum_cached_input_tokens:sum(cached_input_tokens),sum_output_tokens:sum(output_tokens),sum_reasoning_output_tokens:sum(reasoning_output_tokens)'
-      )
-      .eq('user_id', userId)
-      .gte('day', from)
-      .lte('day', to)
-      .maybeSingle();
-
-    if (error || !data) return null;
-
-    return {
-      days: normalizeCount(data.days),
-      totals: {
-        total_tokens: toBigInt(data.sum_total_tokens).toString(),
-        input_tokens: toBigInt(data.sum_input_tokens).toString(),
-        cached_input_tokens: toBigInt(data.sum_cached_input_tokens).toString(),
-        output_tokens: toBigInt(data.sum_output_tokens).toString(),
-        reasoning_output_tokens: toBigInt(data.sum_reasoning_output_tokens).toString()
-      }
-    };
-  } catch (_e) {
-    return null;
-  }
-}
-
-function normalizeCount(value) {
-  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.floor(value));
-  if (typeof value === 'string' && value.trim() !== '') {
-    const n = Number(value);
-    if (Number.isFinite(n)) return Math.max(0, Math.floor(n));
-  }
-  return 0;
-}

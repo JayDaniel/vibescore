@@ -87,7 +87,7 @@ Response:
 
 ### POST /functions/vibescore-ingest
 
-Ingest token usage events from a device token idempotently.
+Ingest half-hour token usage aggregates from a device token idempotently.
 
 Auth:
 - `Authorization: Bearer <device_token>`
@@ -96,11 +96,9 @@ Request body:
 
 ```json
 {
-  "events": [
+  "hourly": [
     {
-      "event_id": "string",
-      "token_timestamp": "iso",
-      "model": "string|null",
+      "hour_start": "2025-12-23T06:00:00.000Z",
       "input_tokens": 0,
       "cached_input_tokens": 0,
       "output_tokens": 0,
@@ -116,6 +114,10 @@ Response:
 ```json
 { "success": true, "inserted": 123, "skipped": 0 }
 ```
+
+Notes:
+- `hour_start` must be a UTC half-hour boundary ISO timestamp (`:00` or `:30`).
+- Uploads are upserts keyed by `user_id + device_id + hour_start`.
 
 ---
 
@@ -164,7 +166,20 @@ Response (bigints as strings):
     "input_tokens": "0",
     "cached_input_tokens": "0",
     "output_tokens": "0",
-    "reasoning_output_tokens": "0"
+    "reasoning_output_tokens": "0",
+    "total_cost_usd": "0.000000"
+  },
+  "pricing": {
+    "model": "gpt-5.2-codex",
+    "pricing_mode": "overlap",
+    "source": "gpt-5.2",
+    "effective_from": "2025-12-23",
+    "rates_per_million_usd": {
+      "input": "1.750000",
+      "cached_input": "0.175000",
+      "output": "14.000000",
+      "reasoning_output": "14.000000"
+    }
   }
 }
 ```
@@ -194,7 +209,7 @@ Response:
 
 ### GET /functions/vibescore-usage-hourly
 
-Return hourly aggregates (24 buckets) for the authenticated user on a given local day (timezone-aware; default UTC).
+Return half-hour aggregates (48 buckets) for the authenticated user on a given local day (timezone-aware; default UTC).
 
 Auth:
 - `Authorization: Bearer <user_jwt>`

@@ -96,6 +96,7 @@ usage.summary.total_system_output,ui,UsagePanel,UsagePanel,summary_label_total_s
 usage.summary.total,ui,UsagePanel,UsagePanel,summary_label_total,"TOTAL_TOKENS",,active
 usage.summary.since,ui,UsagePanel,UsagePanel,summary_label_since,"SINCE {{range}} {{tz}}",,active
 usage.metric.total,ui,UsagePanel,UsagePanel,metric_total,"TOTAL",,active
+usage.metric.total_cost,ui,UsagePanel,UsagePanel,metric_total_cost,"TOTAL_COST_USD",,active
 usage.metric.input,ui,UsagePanel,UsagePanel,metric_input,"INPUT",,active
 usage.metric.output,ui,UsagePanel,UsagePanel,metric_output,"OUTPUT",,active
 usage.metric.cached_input,ui,UsagePanel,UsagePanel,metric_cached_input,"CACHED_INPUT",,active

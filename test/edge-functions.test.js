@@ -506,7 +506,7 @@ test('vibescore-usage-heatmap rejects invalid parameters', async () => {
   assert.equal(res.status, 400);
 });
 
-test('vibescore-usage-hourly aggregates hourly buckets into hourly totals', async () => {
+test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals', async () => {
   const fn = require('../insforge-functions/vibescore-usage-hourly');
 
   const userId = '77777777-7777-7777-7777-777777777777';
@@ -601,11 +601,11 @@ test('vibescore-usage-hourly aggregates hourly buckets into hourly totals', asyn
 
   const body = await res.json();
   assert.equal(body.day, '2025-12-21');
-  assert.equal(body.data.length, 24);
-  assert.equal(body.data[1].total_tokens, '12');
-  assert.equal(body.data[1].input_tokens, '5');
-  assert.equal(body.data[1].output_tokens, '4');
-  assert.equal(body.data[13].total_tokens, '5');
+  assert.equal(body.data.length, 48);
+  assert.equal(body.data[2].total_tokens, '12');
+  assert.equal(body.data[2].input_tokens, '5');
+  assert.equal(body.data[2].output_tokens, '4');
+  assert.equal(body.data[26].total_tokens, '5');
 });
 
 test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
@@ -705,6 +705,88 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
   assert.equal(body.data[0].total_tokens, '15');
   assert.equal(body.data[1].month, '2025-12');
   assert.equal(body.data[1].total_tokens, '7');
+});
+
+test('vibescore-usage-summary returns total_cost_usd and pricing metadata', async () => {
+  const fn = require('../insforge-functions/vibescore-usage-summary');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+
+  const rows = [
+    {
+      hour_start: '2025-12-21T01:00:00.000Z',
+      total_tokens: '1500000',
+      input_tokens: '1000000',
+      cached_input_tokens: '200000',
+      output_tokens: '500000',
+      reasoning_output_tokens: '100000'
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      assert.equal(args.anonKey, ANON_KEY);
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            assert.equal(table, 'vibescore_tracker_hourly');
+            return {
+              select: () => ({
+                eq: (col, value) => {
+                  assert.equal(col, 'user_id');
+                  assert.equal(value, userId);
+                  return {
+                    gte: (gteCol, from) => {
+                      assert.equal(gteCol, 'hour_start');
+                      assert.equal(from, '2025-12-21T00:00:00.000Z');
+                      return {
+                        lt: (ltCol, to) => {
+                          assert.equal(ltCol, 'hour_start');
+                          assert.equal(to, '2025-12-22T00:00:00.000Z');
+                          return {
+                            order: async (orderCol, opts) => {
+                              assert.equal(orderCol, 'hour_start');
+                              assert.equal(opts?.ascending, true);
+                              return { data: rows, error: null };
+                            }
+                          };
+                        }
+                      };
+                    }
+                  };
+                }
+              })
+            };
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+
+  const body = await res.json();
+  assert.equal(body.from, '2025-12-21');
+  assert.equal(body.to, '2025-12-21');
+  assert.equal(body.totals.total_tokens, '1500000');
+  assert.equal(body.totals.total_cost_usd, '8.435000');
+  assert.equal(body.pricing.model, 'gpt-5.2-codex');
+  assert.equal(body.pricing.pricing_mode, 'overlap');
+  assert.equal(body.pricing.rates_per_million_usd.cached_input, '0.175000');
 });
 
 test('vibescore-leaderboard returns a week window and slices entries to limit', async () => {
