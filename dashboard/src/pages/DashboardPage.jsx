@@ -26,6 +26,7 @@ import { TypewriterText } from "../ui/matrix-a/components/TypewriterText.jsx";
 import { TrendMonitor } from "../ui/matrix-a/components/TrendMonitor.jsx";
 import { UsagePanel } from "../ui/matrix-a/components/UsagePanel.jsx";
 import { MatrixShell } from "../ui/matrix-a/layout/MatrixShell.jsx";
+import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { isMockEnabled } from "../lib/mock-data.js";
 
 const PERIODS = ["day", "week", "month", "total"];
@@ -39,20 +40,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     return () => window.clearTimeout(t);
   }, []);
 
-  const [time, setTime] = useState(() => new Date().toLocaleTimeString());
-  useEffect(() => {
-    const t = window.setInterval(
-      () => setTime(new Date().toLocaleTimeString()),
-      1000
-    );
-    return () => window.clearInterval(t);
-  }, []);
-
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
   const [period, setPeriod] = useState("week");
   const range = useMemo(
-    () => getRangeForPeriod(period, { timeZone, offsetMinutes: tzOffsetMinutes }),
+    () =>
+      getRangeForPeriod(period, { timeZone, offsetMinutes: tzOffsetMinutes }),
     [period, timeZone, tzOffsetMinutes]
   );
   const from = range.from;
@@ -64,7 +57,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     [timeZone, tzOffsetMinutes]
   );
   const timeZoneShortLabel = useMemo(
-    () => formatTimeZoneShortLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),
+    () =>
+      formatTimeZoneShortLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),
     [timeZone, tzOffsetMinutes]
   );
   const timeZoneRangeLabel = useMemo(
@@ -75,7 +69,12 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const trendTzOffsetMinutes = tzOffsetMinutes;
   const trendTimeZoneLabel = timeZoneLabel;
   const todayKey = useMemo(
-    () => getLocalDayKey({ timeZone, offsetMinutes: tzOffsetMinutes, date: new Date() }),
+    () =>
+      getLocalDayKey({
+        timeZone,
+        offsetMinutes: tzOffsetMinutes,
+        date: new Date(),
+      }),
     [timeZone, tzOffsetMinutes]
   );
 
@@ -212,7 +211,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const trendRowsForDisplay = useMemo(() => {
     if (useDailyTrend) return daily;
     if (period === "day") {
-      return Array.isArray(trendRows) ? trendRows.filter((row) => row?.hour) : [];
+      return Array.isArray(trendRows)
+        ? trendRows.filter((row) => row?.hour)
+        : [];
     }
     return trendRows;
   }, [daily, period, trendRows, useDailyTrend]);
@@ -242,7 +243,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   function toggleSort(key) {
     setSort((prev) => {
-      if (prev.key === key) return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
+      if (prev.key === key)
+        return { key, dir: prev.dir === "asc" ? "desc" : "asc" };
       return { key, dir: "desc" };
     });
   }
@@ -261,8 +263,17 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     if (!signedIn && !mockEnabled) return 0;
     const serverStreak = Number(heatmap?.streak_days);
     if (Number.isFinite(serverStreak)) return serverStreak;
-    return computeActiveStreakDays({ dailyRows: heatmapDaily, to: heatmapRange.to });
-  }, [signedIn, mockEnabled, heatmap?.streak_days, heatmapDaily, heatmapRange.to]);
+    return computeActiveStreakDays({
+      dailyRows: heatmapDaily,
+      to: heatmapRange.to,
+    });
+  }, [
+    signedIn,
+    mockEnabled,
+    heatmap?.streak_days,
+    heatmapDaily,
+    heatmapRange.to,
+  ]);
 
   const refreshAll = useCallback(() => {
     refreshUsage();
@@ -272,7 +283,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const usageLoadingState = usageLoading || heatmapLoading || trendLoading;
   const usageSourceLabel = useMemo(
-    () => copy("shared.data_source", { source: String(usageSource || "edge").toUpperCase() }),
+    () =>
+      copy("shared.data_source", {
+        source: String(usageSource || "edge").toUpperCase(),
+      }),
     [usageSource]
   );
   const heatmapSourceLabel = useMemo(
@@ -340,7 +354,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const summaryCostValue = useMemo(() => {
     const formatted = formatUsdCurrency(summary?.total_cost_usd);
-    if (!formatted || formatted === "-" || formatted.startsWith("$")) return formatted;
+    if (!formatted || formatted === "-" || formatted.startsWith("$"))
+      return formatted;
     return `$${formatted}`;
   }, [summary?.total_cost_usd]);
 
@@ -379,7 +394,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const installHeadlineSpeedMs = 45;
   const installBodySpeedMs = 48;
   const installBodyDelayMs =
-    installHeadlineDelayMs + installHeadline.length * installHeadlineSpeedMs + 240;
+    installHeadlineDelayMs +
+    installHeadline.length * installHeadlineSpeedMs +
+    240;
   const installSegments = useMemo(
     () => [
       { text: `${copy("dashboard.install.step1")} ` },
@@ -401,7 +418,10 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     [installInitCmd, installSyncCmd]
   );
 
-  const redirectUrl = useMemo(() => `${window.location.origin}/auth/callback`, []);
+  const redirectUrl = useMemo(
+    () => `${window.location.origin}/auth/callback`,
+    []
+  );
   const signInUrl = useMemo(
     () => buildAuthUrl({ baseUrl, path: "/auth/sign-in", redirectUrl }),
     [baseUrl, redirectUrl]
@@ -423,19 +443,16 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   const headerRight = (
     <div className="flex items-center gap-4">
-      <div className="hidden sm:flex text-[#00FF41] font-bold bg-[#00FF41]/5 px-3 py-1 border border-[#00FF41]/20 items-center space-x-4">
-        <span className="opacity-40 font-normal uppercase text-[8px]">
-          {copy("dashboard.session.label")}
-        </span>
-        <span className="text-white tracking-widest">{time}</span>
-      </div>
+      <GithubStar isFixed={false} />
 
       {signedIn ? (
         <>
           <span className="hidden md:block text-[10px] opacity-60 max-w-[240px] truncate">
             {identityLabel}
           </span>
-          <MatrixButton onClick={signOut}>{copy("dashboard.sign_out")}</MatrixButton>
+          <MatrixButton onClick={signOut}>
+            {copy("dashboard.sign_out")}
+          </MatrixButton>
         </>
       ) : (
         <span className="text-[10px] opacity-60">
@@ -453,16 +470,25 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
   return (
     <MatrixShell
-      headerStatus={<BackendStatus baseUrl={baseUrl} accessToken={auth?.accessToken || null} />}
+      headerStatus={
+        <BackendStatus
+          baseUrl={baseUrl}
+          accessToken={auth?.accessToken || null}
+        />
+      }
       headerRight={headerRight}
       footerLeft={
         accessEnabled ? (
-          <span>{copy("dashboard.footer.active", { range: timeZoneRangeLabel })}</span>
+          <span>
+            {copy("dashboard.footer.active", { range: timeZoneRangeLabel })}
+          </span>
         ) : (
           <span>{copy("dashboard.footer.auth")}</span>
         )
       }
-      footerRight={<span className="font-bold">{copy("dashboard.footer.right")}</span>}
+      footerRight={
+        <span className="font-bold">{copy("dashboard.footer.right")}</span>
+      }
     >
       {requireAuthGate ? (
         <div className="flex items-center justify-center">
@@ -543,7 +569,9 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
             <AsciiBox
               title={copy("dashboard.activity.title")}
-              subtitle={accessEnabled ? copy("dashboard.activity.subtitle") : "—"}
+              subtitle={
+                accessEnabled ? copy("dashboard.activity.subtitle") : "—"
+              }
               className="min-w-0 overflow-hidden"
             >
               <ActivityHeatmap
@@ -562,7 +590,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                 {heatmapSourceLabel}
               </div>
             </AsciiBox>
-
           </div>
 
           <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
@@ -643,7 +670,11 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
                     {pagedDetails.map((r) => (
                       <tr
                         key={String(
-                          r?.[detailsDateKey] || r?.day || r?.hour || r?.month || ""
+                          r?.[detailsDateKey] ||
+                            r?.day ||
+                            r?.hour ||
+                            r?.month ||
+                            ""
                         )}
                         className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
                           r.missing

@@ -4,6 +4,7 @@ import { DecodingText } from "../ui/matrix-a/components/DecodingText.jsx";
 import { MatrixAvatar } from "../ui/matrix-a/components/MatrixAvatar.jsx";
 import { LiveSniffer } from "../ui/matrix-a/components/LiveSniffer.jsx";
 import { SignalBox } from "../ui/matrix-a/components/SignalBox.jsx";
+import { GithubStar } from "../ui/matrix-a/components/GithubStar.jsx";
 import { copy } from "../lib/copy.js";
 
 export function LandingPage({ signInUrl }) {
@@ -36,6 +37,7 @@ export function LandingPage({ signInUrl }) {
     <div className="min-h-screen bg-[#050505] font-mono text-[#00FF41] flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* 视觉层 */}
       <MatrixRain />
+      <GithubStar />
       <div className="pointer-events-none fixed inset-0 z-50 bg-[linear-gradient(rgba(18,16,16,0)_50%,rgba(0,0,0,0.1)_50%)] bg-[length:100%_4px]"></div>
 
       {/* 主面板 */}
@@ -67,7 +69,10 @@ export function LandingPage({ signInUrl }) {
         {/* 演示区域 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
           {/* 身份探测 */}
-          <SignalBox title={copy("landing.signal.identity_probe")} className="h-44">
+          <SignalBox
+            title={copy("landing.signal.identity_probe")}
+            className="h-44"
+          >
             <div className="flex items-center space-x-6 h-full">
               <MatrixAvatar
                 name={handle}
@@ -94,7 +99,10 @@ export function LandingPage({ signInUrl }) {
           </SignalBox>
 
           {/* 实时抓包 */}
-          <SignalBox title={copy("landing.signal.live_sniffer")} className="h-44">
+          <SignalBox
+            title={copy("landing.signal.live_sniffer")}
+            className="h-44"
+          >
             <LiveSniffer />
           </SignalBox>
         </div>
