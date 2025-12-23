@@ -24,5 +24,5 @@
 
 ## 验收证据（完成时补齐）
 
-- [x] 终端录屏：`node bin/tracker.js init` → 浏览器登录 → CLI 成功落盘 `~/.vibescore/tracker/config.json`
-- [x] 终端录屏：产生一段 token_count 日志 → `node bin/tracker.js sync` → Dashboard 看到 UTC 日聚合数据更新
+- [x] 终端录屏：`npx --yes /tracker init` → 浏览器登录 → CLI 成功落盘 `~/.vibescore/tracker/config.json`
+- [x] 终端录屏：产生一段 token_count 日志 → `npx --yes /tracker sync` → Dashboard 看到 UTC 日聚合数据更新

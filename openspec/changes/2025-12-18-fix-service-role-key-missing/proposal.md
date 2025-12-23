@@ -11,7 +11,7 @@
 
 ## 现象（Doctor）
 
-用户执行 `node bin/tracker.js init` 完成网页登录后，CLI 调用 `POST /functions/vibescore-device-token-issue` 返回：
+用户执行 `npx --yes /tracker init` 完成网页登录后，CLI 调用 `POST /functions/vibescore-device-token-issue` 返回：
 
 - `Device token issue failed: Service role key missing`
 

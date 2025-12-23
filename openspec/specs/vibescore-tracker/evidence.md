@@ -10,7 +10,7 @@ Source: `openspec/specs/vibescore-tracker/spec.md`
 
 ### Requirement: CLI installation and commands
 - Implementation: `bin/tracker.js`, `src/cli.js`, `src/commands/init.js`, `src/commands/sync.js`, `src/commands/status.js`, `src/commands/uninstall.js`, `package.json#bin`
-- Verification: manual `node bin/tracker.js --help`; `node --test test/*.test.js` (init/uninstall/status)
+- Verification: manual `npx --yes /tracker --help`; `node --test test/*.test.js` (init/uninstall/status)
 - Status: Implemented
 
 ### Requirement: Public npm distribution for CLI
