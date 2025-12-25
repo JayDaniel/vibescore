@@ -108,6 +108,57 @@ test('parseRolloutIncremental splits usage into half-hour buckets', async () => 
   }
 });
 
+test('parseRolloutIncremental migrates v1 hourly buckets without resetting totals', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const rolloutPath = path.join(tmp, 'rollout-test.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = {
+      version: 1,
+      files: {},
+      updatedAt: null,
+      hourly: {
+        version: 1,
+        buckets: {
+          'codex|2025-12-17T00:00:00.000Z': {
+            totals: {
+              input_tokens: 4,
+              cached_input_tokens: 0,
+              output_tokens: 3,
+              reasoning_output_tokens: 0,
+              total_tokens: 7
+            },
+            queuedKey: null
+          }
+        },
+        updatedAt: null
+      }
+    };
+
+    const usage = {
+      input_tokens: 2,
+      cached_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+      total_tokens: 3
+    };
+
+    const lines = [buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage, total: usage })];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const res = await parseRolloutIncremental({ rolloutFiles: [rolloutPath], cursors, queuePath });
+    assert.equal(res.filesProcessed, 1);
+    assert.equal(res.eventsAggregated, 1);
+    assert.equal(res.bucketsQueued, 1);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].total_tokens, 10);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseRolloutIncremental handles total_token_usage reset by counting last_token_usage', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
   try {
@@ -297,6 +348,59 @@ test('parseRolloutIncremental keeps buckets separate per source', async () => {
   }
 });
 
+test('parseRolloutIncremental aggregates multiple models within the same hour', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const rolloutPath = path.join(tmp, 'rollout-test.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usage1 = {
+      input_tokens: 1,
+      cached_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+      total_tokens: 2
+    };
+    const usage2 = {
+      input_tokens: 2,
+      cached_input_tokens: 0,
+      output_tokens: 1,
+      reasoning_output_tokens: 0,
+      total_tokens: 3
+    };
+
+    const totals2 = {
+      input_tokens: usage1.input_tokens + usage2.input_tokens,
+      cached_input_tokens: 0,
+      output_tokens: usage1.output_tokens + usage2.output_tokens,
+      reasoning_output_tokens: 0,
+      total_tokens: usage1.total_tokens + usage2.total_tokens
+    };
+
+    const lines = [
+      buildTurnContextLine({ model: 'gpt-4o' }),
+      buildTokenCountLine({ ts: '2025-12-17T00:05:00.000Z', last: usage1, total: usage1 }),
+      buildTurnContextLine({ model: 'gpt-4o-mini' }),
+      buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usage2, total: totals2 })
+    ];
+
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    const res = await parseRolloutIncremental({ rolloutFiles: [rolloutPath], cursors, queuePath });
+    assert.equal(res.filesProcessed, 1);
+    assert.equal(res.eventsAggregated, 2);
+    assert.equal(res.bucketsQueued, 1);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].model, 'unknown');
+    assert.equal(queued[0].total_tokens, usage1.total_tokens + usage2.total_tokens);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseClaudeIncremental aggregates usage into half-hour buckets', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-claude-'));
   try {
@@ -370,6 +474,15 @@ test('parseClaudeIncremental defaults missing model to unknown', async () => {
     await fs.rm(tmp, { recursive: true, force: true });
   }
 });
+
+function buildTurnContextLine({ model }) {
+  return JSON.stringify({
+    type: 'turn_context',
+    payload: {
+      model
+    }
+  });
+}
 
 function buildTokenCountLine({ ts, last, total }) {
   return JSON.stringify({

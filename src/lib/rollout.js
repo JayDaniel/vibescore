@@ -299,31 +299,61 @@ async function parseClaudeFile({ filePath, startOffset, hourlyState, touchedBuck
 async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets }) {
   if (!touchedBuckets || touchedBuckets.size === 0) return 0;
 
-  const toAppend = [];
+  const touchedGroups = new Set();
   for (const bucketStart of touchedBuckets) {
-    const parsedKey = parseBucketKey(bucketStart);
-    const source = parsedKey.source || DEFAULT_SOURCE;
-    const model = parsedKey.model || DEFAULT_MODEL;
-    const hourStart = parsedKey.hourStart;
-    const bucket =
-      hourlyState.buckets[bucketKey(source, model, hourStart)] || hourlyState.buckets[bucketStart];
+    const parsed = parseBucketKey(bucketStart);
+    const hourStart = parsed.hourStart;
+    if (!hourStart) continue;
+    touchedGroups.add(groupBucketKey(parsed.source, hourStart));
+  }
+  if (touchedGroups.size === 0) return 0;
+
+  const grouped = new Map();
+  for (const [key, bucket] of Object.entries(hourlyState.buckets || {})) {
     if (!bucket || !bucket.totals) continue;
-    const key = totalsKey(bucket.totals);
-    if (bucket.queuedKey === key) continue;
+    const parsed = parseBucketKey(key);
+    const hourStart = parsed.hourStart;
+    if (!hourStart) continue;
+    const groupKey = groupBucketKey(parsed.source, hourStart);
+    if (!touchedGroups.has(groupKey)) continue;
+
+    let group = grouped.get(groupKey);
+    if (!group) {
+      group = {
+        source: normalizeSourceInput(parsed.source) || DEFAULT_SOURCE,
+        hourStart,
+        models: new Set(),
+        totals: initTotals()
+      };
+      grouped.set(groupKey, group);
+    }
+    group.models.add(parsed.model || DEFAULT_MODEL);
+    addTotals(group.totals, bucket.totals);
+  }
+
+  const toAppend = [];
+  const groupQueued = hourlyState.groupQueued && typeof hourlyState.groupQueued === 'object' ? hourlyState.groupQueued : {};
+  for (const group of grouped.values()) {
+    const model = group.models.size === 1 ? [...group.models][0] : DEFAULT_MODEL;
+    const key = totalsKey(group.totals);
+    const groupKey = groupBucketKey(group.source, group.hourStart);
+    if (groupQueued[groupKey] === key) continue;
     toAppend.push(
       JSON.stringify({
-        source,
+        source: group.source,
         model,
-        hour_start: hourStart,
-        input_tokens: bucket.totals.input_tokens,
-        cached_input_tokens: bucket.totals.cached_input_tokens,
-        output_tokens: bucket.totals.output_tokens,
-        reasoning_output_tokens: bucket.totals.reasoning_output_tokens,
-        total_tokens: bucket.totals.total_tokens
+        hour_start: group.hourStart,
+        input_tokens: group.totals.input_tokens,
+        cached_input_tokens: group.totals.cached_input_tokens,
+        output_tokens: group.totals.output_tokens,
+        reasoning_output_tokens: group.totals.reasoning_output_tokens,
+        total_tokens: group.totals.total_tokens
       })
     );
-    bucket.queuedKey = key;
+    groupQueued[groupKey] = key;
   }
+
+  hourlyState.groupQueued = groupQueued;
 
   if (toAppend.length > 0) {
     await fs.appendFile(queuePath, toAppend.join('\n') + '\n', 'utf8');
@@ -335,15 +365,30 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
 function normalizeHourlyState(raw) {
   const state = raw && typeof raw === 'object' ? raw : {};
   const version = Number(state.version || 1);
-  if (!Number.isFinite(version) || version < 2) {
-    return {
-      version: 2,
-      buckets: {},
-      updatedAt: null
-    };
-  }
   const rawBuckets = state.buckets && typeof state.buckets === 'object' ? state.buckets : {};
   const buckets = {};
+  const groupQueued = {};
+
+  if (!Number.isFinite(version) || version < 2) {
+    for (const [key, value] of Object.entries(rawBuckets)) {
+      const parsed = parseBucketKey(key);
+      const hourStart = parsed.hourStart;
+      if (!hourStart) continue;
+      const source = normalizeSourceInput(parsed.source) || DEFAULT_SOURCE;
+      const normalizedKey = bucketKey(source, DEFAULT_MODEL, hourStart);
+      buckets[normalizedKey] = value;
+      if (value?.queuedKey) {
+        groupQueued[groupBucketKey(source, hourStart)] = value.queuedKey;
+      }
+    }
+    return {
+      version: 3,
+      buckets,
+      groupQueued,
+      updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null
+    };
+  }
+
   for (const [key, value] of Object.entries(rawBuckets)) {
     const parsed = parseBucketKey(key);
     const hourStart = parsed.hourStart;
@@ -351,9 +396,14 @@ function normalizeHourlyState(raw) {
     const normalizedKey = bucketKey(parsed.source, parsed.model, hourStart);
     buckets[normalizedKey] = value;
   }
+
+  const existingGroupQueued =
+    state.groupQueued && typeof state.groupQueued === 'object' ? state.groupQueued : {};
+
   return {
-    version: 2,
+    version: 3,
     buckets,
+    groupQueued: version >= 3 ? existingGroupQueued : {},
     updatedAt: typeof state.updatedAt === 'string' ? state.updatedAt : null
   };
 }
@@ -432,6 +482,11 @@ function bucketKey(source, model, hourStart) {
   const safeSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
   const safeModel = normalizeModelInput(model) || DEFAULT_MODEL;
   return `${safeSource}${BUCKET_SEPARATOR}${safeModel}${BUCKET_SEPARATOR}${hourStart}`;
+}
+
+function groupBucketKey(source, hourStart) {
+  const safeSource = normalizeSourceInput(source) || DEFAULT_SOURCE;
+  return `${safeSource}${BUCKET_SEPARATOR}${hourStart}`;
 }
 
 function parseBucketKey(key) {
