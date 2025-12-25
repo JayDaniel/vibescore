@@ -8,9 +8,13 @@ const { getDefaultPricingProfile, resolvePricingProfile } = require('../../insfo
 class DatabaseStub {
   constructor(rows = []) {
     this.rows = rows;
+    this._table = null;
+    this.orCalls = 0;
+    this.lastOr = null;
   }
 
-  from() {
+  from(table) {
+    this._table = table;
     return this;
   }
 
@@ -26,28 +30,41 @@ class DatabaseStub {
     return this;
   }
 
+  or(filter) {
+    this.orCalls += 1;
+    this.lastOr = filter;
+    return this;
+  }
+
   order() {
     return this;
   }
 
   limit() {
+    if (this._table === 'vibescore_pricing_model_aliases') {
+      return { data: [], error: null };
+    }
     return { data: this.rows, error: null };
   }
 }
 
 async function main() {
   const profileRow = {
-    model: 'gpt-5.2-codex',
+    model: 'openai/codex-vision',
     source: 'openrouter',
-    effective_from: '2025-12-23',
-    input_rate_micro_per_million: 1750000,
-    cached_input_rate_micro_per_million: 175000,
-    output_rate_micro_per_million: 14000000,
-    reasoning_output_rate_micro_per_million: 14000000
+    effective_from: '2025-11-30',
+    input_rate_micro_per_million: 999000,
+    cached_input_rate_micro_per_million: 111000,
+    output_rate_micro_per_million: 2220000,
+    reasoning_output_rate_micro_per_million: 3330000
   };
 
   const edgeClient = { database: new DatabaseStub([profileRow]) };
-  const resolved = await resolvePricingProfile({ edgeClient, effectiveDate: '2025-12-25' });
+  const resolved = await resolvePricingProfile({
+    edgeClient,
+    effectiveDate: '2025-12-25',
+    model: 'codex-vision'
+  });
 
   assert.equal(resolved.model, profileRow.model);
   assert.equal(resolved.source, profileRow.source);
@@ -65,6 +82,8 @@ async function main() {
     resolved.rates_micro_per_million.reasoning_output,
     profileRow.reasoning_output_rate_micro_per_million
   );
+  assert.equal(edgeClient.database.orCalls, 1);
+  assert.ok(edgeClient.database.lastOr && edgeClient.database.lastOr.includes('model.eq.codex-vision'));
 
   const fallbackClient = { database: new DatabaseStub([]) };
   const fallback = await resolvePricingProfile({ edgeClient: fallbackClient, effectiveDate: '2025-12-25' });
