@@ -135,10 +135,6 @@ var require_auth = __commonJS({
       const anonKey = getAnonKey2();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
-      const userId = payload?.sub;
-      if (userId && !isJwtExpired(payload)) {
-        return { ok: true, edgeClient, userId };
-      }
       if (payload && isJwtExpired(payload)) {
         return { ok: false, edgeClient: null, userId: null };
       }

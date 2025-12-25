@@ -62,10 +62,6 @@ async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
   const anonKey = getAnonKey();
   const edgeClient = createClient({ baseUrl, anonKey: anonKey || undefined, edgeFunctionToken: bearer });
   const payload = decodeJwtPayload(bearer);
-  const userId = payload?.sub;
-  if (userId && !isJwtExpired(payload)) {
-    return { ok: true, edgeClient, userId };
-  }
   if (payload && isJwtExpired(payload)) {
     return { ok: false, edgeClient: null, userId: null };
   }
