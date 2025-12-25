@@ -449,6 +449,32 @@ test('parseClaudeIncremental aggregates usage into half-hour buckets', async () 
   }
 });
 
+test('parseClaudeIncremental honors total_tokens when present', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-claude-'));
+  try {
+    const claudePath = path.join(tmp, 'agent-claude.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const lines = [buildClaudeUsageLine({ ts: '2025-12-25T01:10:00.000Z', input: 5, output: 1, total: 20 })];
+    await fs.writeFile(claudePath, lines.join('\n') + '\n', 'utf8');
+
+    const res = await parseClaudeIncremental({
+      projectFiles: [{ path: claudePath, source: 'claude' }],
+      cursors,
+      queuePath
+    });
+    assert.equal(res.filesProcessed, 1);
+    assert.equal(res.bucketsQueued, 1);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].total_tokens, 20);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseClaudeIncremental defaults missing model to unknown', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-claude-'));
   try {
@@ -516,14 +542,15 @@ function buildEveryCodeTokenCountLine({ ts, last, total }) {
   });
 }
 
-function buildClaudeUsageLine({ ts, input, output, model }) {
+function buildClaudeUsageLine({ ts, input, output, model, total }) {
   return JSON.stringify({
     timestamp: ts,
     message: {
       model,
       usage: {
         input_tokens: input,
-        output_tokens: output
+        output_tokens: output,
+        total_tokens: typeof total === 'number' ? total : undefined
       }
     }
   });

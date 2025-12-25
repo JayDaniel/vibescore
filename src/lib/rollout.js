@@ -578,12 +578,16 @@ function normalizeUsage(u) {
 }
 
 function normalizeClaudeUsage(u) {
+  const inputTokens = toNonNegativeInt(u?.input_tokens);
+  const outputTokens = toNonNegativeInt(u?.output_tokens);
+  const hasTotal = u && Object.prototype.hasOwnProperty.call(u, 'total_tokens');
+  const totalTokens = hasTotal ? toNonNegativeInt(u?.total_tokens) : inputTokens + outputTokens;
   return {
-    input_tokens: toNonNegativeInt(u?.input_tokens),
+    input_tokens: inputTokens,
     cached_input_tokens: toNonNegativeInt(u?.cache_read_input_tokens),
-    output_tokens: toNonNegativeInt(u?.output_tokens),
+    output_tokens: outputTokens,
     reasoning_output_tokens: 0,
-    total_tokens: toNonNegativeInt(u?.input_tokens) + toNonNegativeInt(u?.output_tokens)
+    total_tokens: totalTokens
   };
 }
 
