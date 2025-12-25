@@ -15,6 +15,10 @@ _Real-time AI Analytics for Codex CLI_
 
 [**Documentation**](docs/) • [**Dashboard**](dashboard/) • [**Backend API**](BACKEND_API.md)
 
+<br/>
+
+<img src="docs/screenshots/dashboard.png" width="900" alt="VibeScore Dashboard Preview"/>
+
 </div>
 
 ---
@@ -42,6 +46,10 @@ We believe your code and thoughts are your own. VibeScore is built with strict p
 - ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
 - 🔒 **Identity Core**: Robust authentication and permission management to secure your development data.
 
+### 🌌 Visual Preview
+
+<img src="docs/screenshots/landing.png" width="900" alt="VibeScore Landing Preview"/>
+
 ## 🛠️ Quick Start
 
 ### Installation
@@ -53,6 +61,7 @@ npx --yes @vibescore/tracker init
 ```
 
 Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically; it will not create the file when missing.
+Init also kicks off a best-effort background sync without blocking installation.
 
 ### Sync & Status
 
@@ -68,6 +77,11 @@ npx --yes @vibescore/tracker status
 
 - Codex CLI logs: `~/.codex/sessions/**/rollout-*.jsonl` (override with `CODEX_HOME`)
 - Every Code logs: `~/.code/sessions/**/rollout-*.jsonl` (override with `CODE_HOME`)
+
+## 🔧 Environment Variables
+
+- `VIBESCORE_HTTP_TIMEOUT_MS`: CLI HTTP timeout in ms (default `20000`, `0` disables, clamped to `1000..120000`).
+- `VITE_VIBESCORE_HTTP_TIMEOUT_MS`: Dashboard request timeout in ms (default `15000`, `0` disables, clamped to `1000..30000`).
 
 ## 🧰 Troubleshooting
 

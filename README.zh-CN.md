@@ -15,6 +15,10 @@ _Codex CLI 实时 AI 分析工具_
 
 [**文档**](docs/) • [**控制台**](dashboard/) • [**后端接口**](BACKEND_API.md)
 
+<br/>
+
+<img src="docs/screenshots/dashboard.png" width="900" alt="VibeScore 控制台预览"/>
+
 </div>
 
 ---
@@ -42,6 +46,10 @@ _Codex CLI 实时 AI 分析工具_
 - ⚡ **AI Analytics (AI 分析)**: 深度分析 Input/Output Token，支持缓存 (Cached) 与推理 (Reasoning) 部分的分离监控。
 - 🔒 **Identity Core (身份核心)**: 完备的身份验证与权限管理，保护你的开发数据资产。
 
+### 🌌 视觉预览
+
+<img src="docs/screenshots/landing.png" width="900" alt="VibeScore 落地页预览"/>
+
 ## 🛠️ 快速开始
 
 ### 安装
@@ -52,7 +60,7 @@ _Codex CLI 实时 AI 分析工具_
 npx --yes @vibescore/tracker init
 ```
 
-说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`；缺失时不会创建该文件。
+说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`；缺失时不会创建该文件。`init` 还会触发一次后台同步尝试，但不会阻塞安装流程。
 
 ### 同步与状态查看
 
@@ -68,6 +76,11 @@ npx --yes @vibescore/tracker status
 
 - Codex CLI 日志：`~/.codex/sessions/**/rollout-*.jsonl`（可用 `CODEX_HOME` 覆盖）
 - Every Code 日志：`~/.code/sessions/**/rollout-*.jsonl`（可用 `CODE_HOME` 覆盖）
+
+## 🔧 环境变量
+
+- `VIBESCORE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
+- `VITE_VIBESCORE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
 
 ## 🧰 常见问题
 
