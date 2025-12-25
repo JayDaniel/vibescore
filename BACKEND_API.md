@@ -67,6 +67,10 @@ OpenRouter sync requires these environment variables in InsForge:
 Health check:
 - See `docs/ops/pricing-sync-health.md` and `scripts/ops/pricing-sync-health.sql`.
 
+Alias mapping:
+- `vibescore_pricing_model_aliases` maps `usage_model` -> `pricing_model` with `effective_from`.
+- Resolver checks alias mapping before suffix matching.
+
 ## Client backpressure defaults
 
 To keep low-tier backends stable, the CLI and dashboard apply conservative defaults:
@@ -522,6 +526,7 @@ Notes:
 - `retention_days` is optional; when provided, rows older than the cutoff are soft-deactivated (`active=false`).
 - `effective_from` defaults to today (UTC).
 - `allow_models` is optional; when omitted, all models from OpenRouter are processed.
+- Alias generation: unmatched usage models are mapped via vendor rules (`claude-*` -> `anthropic/*`, `gpt-*` -> `openai/*`) and frozen by `effective_from`.
 
 Response:
 
@@ -534,6 +539,9 @@ Response:
   "models_processed": 280,
   "models_skipped": 20,
   "rows_upserted": 280,
+  "usage_models_total": 42,
+  "aliases_generated": 5,
+  "aliases_upserted": 5,
   "retention": { "retention_days": 90, "cutoff_date": "2025-09-26" }
 }
 ```

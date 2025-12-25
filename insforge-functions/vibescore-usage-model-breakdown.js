@@ -156,7 +156,7 @@ var require_source = __commonJS({
   "insforge-src/shared/source.js"(exports2, module2) {
     "use strict";
     var MAX_SOURCE_LENGTH = 64;
-    function normalizeSource(value) {
+    function normalizeSource2(value) {
       if (typeof value !== "string") return null;
       const normalized = value.trim().toLowerCase();
       if (!normalized) return null;
@@ -170,13 +170,13 @@ var require_source = __commonJS({
       const raw = url.searchParams.get("source");
       if (raw == null) return { ok: true, source: null };
       if (raw.trim() === "") return { ok: true, source: null };
-      const normalized = normalizeSource(raw);
+      const normalized = normalizeSource2(raw);
       if (!normalized) return { ok: false, error: "Invalid source" };
       return { ok: true, source: normalized };
     }
     module2.exports = {
       MAX_SOURCE_LENGTH,
-      normalizeSource,
+      normalizeSource: normalizeSource2,
       getSourceParam: getSourceParam2
     };
   }
@@ -191,7 +191,7 @@ var require_model = __commonJS({
       const trimmed = value.trim();
       return trimmed.length > 0 ? trimmed : null;
     }
-    function getModelParam2(url) {
+    function getModelParam(url) {
       if (!url || typeof url.searchParams?.get !== "function") {
         return { ok: false, error: "Invalid request URL" };
       }
@@ -204,7 +204,7 @@ var require_model = __commonJS({
     }
     module2.exports = {
       normalizeModel: normalizeModel2,
-      getModelParam: getModelParam2
+      getModelParam
     };
   }
 });
@@ -604,7 +604,7 @@ var require_pricing = __commonJS({
       }
       return null;
     }
-    function normalizeSource(value) {
+    function normalizeSource2(value) {
       if (typeof value !== "string") return null;
       const trimmed = value.trim().toLowerCase();
       return trimmed.length > 0 ? trimmed : null;
@@ -617,7 +617,7 @@ var require_pricing = __commonJS({
     function getPricingDefaults() {
       return {
         model: normalizeModelValue(getEnvValue("VIBESCORE_PRICING_MODEL")) || DEFAULT_PROFILE.model,
-        source: normalizeSource(getEnvValue("VIBESCORE_PRICING_SOURCE")) || DEFAULT_PROFILE.source
+        source: normalizeSource2(getEnvValue("VIBESCORE_PRICING_SOURCE")) || DEFAULT_PROFILE.source
       };
     }
     async function resolvePricingProfile2({ edgeClient, effectiveDate, model, source } = {}) {
@@ -626,7 +626,7 @@ var require_pricing = __commonJS({
       const defaults = getPricingDefaults();
       const requestedModel = normalizeModelValue(model) || defaults.model;
       const requestedModelLower = requestedModel ? requestedModel.toLowerCase() : null;
-      const requestedSource = normalizeSource(source) || defaults.source;
+      const requestedSource = normalizeSource2(source) || defaults.source;
       const dateKey = typeof effectiveDate === "string" && effectiveDate.trim() ? effectiveDate.trim() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
       try {
         let resolvedModel = requestedModel;
@@ -765,12 +765,12 @@ var require_pricing = __commonJS({
   }
 });
 
-// insforge-src/functions/vibescore-usage-summary.js
+// insforge-src/functions/vibescore-usage-model-breakdown.js
 var { handleOptions, json, requireMethod } = require_http();
 var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
 var { getBaseUrl } = require_env();
-var { getSourceParam } = require_source();
-var { getModelParam, normalizeModel } = require_model();
+var { getSourceParam, normalizeSource } = require_source();
+var { normalizeModel } = require_model();
 var {
   addDatePartsDays,
   getUsageTimeZoneContext,
@@ -787,6 +787,8 @@ var {
   formatUsdFromMicros,
   resolvePricingProfile
 } = require_pricing();
+var DEFAULT_SOURCE = "codex";
+var DEFAULT_MODEL = "unknown";
 module.exports = async function(request) {
   const opt = handleOptions(request);
   if (opt) return opt;
@@ -801,10 +803,7 @@ module.exports = async function(request) {
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
   if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
-  const source = sourceResult.source;
-  const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
-  const model = modelResult.model;
+  const sourceFilter = sourceResult.source;
   const { from, to } = normalizeDateRangeLocal(
     url.searchParams.get("from"),
     url.searchParams.get("to"),
@@ -818,69 +817,117 @@ module.exports = async function(request) {
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
+  const sourcesMap = /* @__PURE__ */ new Map();
   const distinctModels = /* @__PURE__ */ new Set();
   const { error } = await forEachPage({
     createQuery: () => {
-      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (model) query = query.eq("model", model);
+      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
+        "source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+      ).eq("user_id", auth.userId);
+      if (sourceFilter) query = query.eq("source", sourceFilter);
       return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true });
     },
     onPage: (rows) => {
-      for (const row of rows) {
-        totalTokens += toBigInt(row?.total_tokens);
-        inputTokens += toBigInt(row?.input_tokens);
-        cachedInputTokens += toBigInt(row?.cached_input_tokens);
-        outputTokens += toBigInt(row?.output_tokens);
-        reasoningOutputTokens += toBigInt(row?.reasoning_output_tokens);
-        const normalizedModel = normalizeModel(row?.model);
-        if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
-          distinctModels.add(normalizedModel);
+      for (const row of rows || []) {
+        const source = normalizeSource(row?.source) || DEFAULT_SOURCE;
+        const model = normalizeModel(row?.model) || DEFAULT_MODEL;
+        const entry = getSourceEntry(sourcesMap, source);
+        const modelEntry = getModelEntry(entry.models, model);
+        addTotals(entry.totals, row);
+        addTotals(modelEntry.totals, row);
+        if (model !== DEFAULT_MODEL) {
+          distinctModels.add(model);
         }
       }
     }
   });
   if (error) return json({ error: error.message }, 500);
-  const impliedModel = model || (distinctModels.size === 1 ? Array.from(distinctModels)[0] : null);
+  const pricingModel = distinctModels.size === 1 ? Array.from(distinctModels)[0] : null;
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
-    model: impliedModel,
+    model: pricingModel,
     effectiveDate: to
   });
-  const cost = computeUsageCost(
-    {
-      total_tokens: totalTokens,
-      input_tokens: inputTokens,
-      cached_input_tokens: cachedInputTokens,
-      output_tokens: outputTokens,
-      reasoning_output_tokens: reasoningOutputTokens
-    },
-    pricingProfile
-  );
-  const totals = {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString(),
-    total_cost_usd: formatUsdFromMicros(cost.cost_micros)
-  };
+  const grandTotals = createTotals();
+  const sources = Array.from(sourcesMap.values()).map((entry) => {
+    addTotals(grandTotals, entry.totals);
+    const models = Array.from(entry.models.values()).map((modelEntry) => formatTotals(modelEntry, pricingProfile)).sort(compareTotals);
+    const totals = formatTotals(entry, pricingProfile).totals;
+    return {
+      source: entry.source,
+      totals,
+      models
+    };
+  }).sort((a, b) => a.source.localeCompare(b.source));
+  const overallCost = computeUsageCost(grandTotals, pricingProfile);
   return json(
     {
       from,
       to,
       days: dayKeys.length,
-      totals,
+      sources,
       pricing: buildPricingMetadata({
-        profile: cost.profile,
-        pricingMode: cost.pricing_mode
+        profile: overallCost.profile,
+        pricingMode: overallCost.pricing_mode
       })
     },
     200
   );
 };
+function createTotals() {
+  return {
+    total_tokens: 0n,
+    input_tokens: 0n,
+    cached_input_tokens: 0n,
+    output_tokens: 0n,
+    reasoning_output_tokens: 0n
+  };
+}
+function addTotals(target, row) {
+  if (!target || !row) return;
+  target.total_tokens = toBigInt(target.total_tokens) + toBigInt(row.total_tokens);
+  target.input_tokens = toBigInt(target.input_tokens) + toBigInt(row.input_tokens);
+  target.cached_input_tokens = toBigInt(target.cached_input_tokens) + toBigInt(row.cached_input_tokens);
+  target.output_tokens = toBigInt(target.output_tokens) + toBigInt(row.output_tokens);
+  target.reasoning_output_tokens = toBigInt(target.reasoning_output_tokens) + toBigInt(row.reasoning_output_tokens);
+}
+function getSourceEntry(map, source) {
+  if (map.has(source)) return map.get(source);
+  const entry = {
+    source,
+    totals: createTotals(),
+    models: /* @__PURE__ */ new Map()
+  };
+  map.set(source, entry);
+  return entry;
+}
+function getModelEntry(map, model) {
+  if (map.has(model)) return map.get(model);
+  const entry = {
+    model,
+    totals: createTotals()
+  };
+  map.set(model, entry);
+  return entry;
+}
+function formatTotals(entry, pricingProfile) {
+  const totals = entry.totals;
+  const cost = computeUsageCost(totals, pricingProfile);
+  return {
+    ...entry,
+    totals: {
+      total_tokens: totals.total_tokens.toString(),
+      input_tokens: totals.input_tokens.toString(),
+      cached_input_tokens: totals.cached_input_tokens.toString(),
+      output_tokens: totals.output_tokens.toString(),
+      reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
+      total_cost_usd: formatUsdFromMicros(cost.cost_micros)
+    }
+  };
+}
+function compareTotals(a, b) {
+  const aTotal = toBigInt(a?.totals?.total_tokens);
+  const bTotal = toBigInt(b?.totals?.total_tokens);
+  if (aTotal === bTotal) return String(a?.model || "").localeCompare(String(b?.model || ""));
+  return aTotal > bTotal ? -1 : 1;
+}

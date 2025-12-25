@@ -29,6 +29,7 @@ curl -s -X POST "$BASE_URL/functions/vibescore-pricing-sync" \
 - `is_fresh = true`（允许 12 小时内更新）
 - 最新 `effective_from` 有大量 `active_rows`
 - 默认模型 `gpt-5.2-codex` 存在（精确或带前缀）
+- `Unmatched usage models` 查询为空（或数量可解释）
 
 ## 常见错误
 - `Unauthorized`：key 权限不足或环境不匹配
