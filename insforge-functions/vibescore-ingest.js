@@ -238,6 +238,17 @@ module.exports = async function(request) {
   const rows = buildRows({ hourly, tokenRow, nowIso });
   if (rows.error) return json({ error: rows.error }, 400);
   if (rows.data.length === 0) {
+    await recordIngestBatchMetrics({
+      serviceClient,
+      baseUrl,
+      anonKey,
+      tokenHash,
+      tokenRow,
+      bucketCount: 0,
+      inserted: 0,
+      skipped: 0,
+      source: null
+    });
     return json({ success: true, inserted: 0, skipped: 0 }, 200);
   }
   const upsert = serviceClient ? await upsertWithServiceClient({
@@ -250,6 +261,17 @@ module.exports = async function(request) {
     tokenHash
   }) : await upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows: rows.data, nowIso });
   if (!upsert.ok) return json({ error: upsert.error }, 500);
+  await recordIngestBatchMetrics({
+    serviceClient,
+    baseUrl,
+    anonKey,
+    tokenHash,
+    tokenRow,
+    bucketCount: rows.data.length,
+    inserted: upsert.inserted,
+    skipped: upsert.skipped,
+    source: deriveMetricsSource(rows.data)
+  });
   return json(
     {
       success: true,
@@ -285,6 +307,17 @@ function buildRows({ hourly, tokenRow, nowIso }) {
     });
   }
   return { error: null, data: rows };
+}
+function deriveMetricsSource(rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const sources = /* @__PURE__ */ new Set();
+  for (const row of rows) {
+    const source = typeof row?.source === "string" ? row.source.trim() : "";
+    if (source) sources.add(source);
+  }
+  if (sources.size === 1) return Array.from(sources)[0];
+  if (sources.size > 1) return "mixed";
+  return null;
 }
 async function getTokenRowWithServiceClient(serviceClient, tokenHash) {
   const { data: tokenRow, error: tokenErr } = await serviceClient.database.from("vibescore_tracker_device_tokens").select("id,user_id,device_id,revoked_at,last_sync_at").eq("token_hash", tokenHash).maybeSingle();
@@ -372,6 +405,50 @@ async function upsertWithAnonKey({ baseUrl, anonKey, tokenHash, tokenRow, rows, 
     return { ok: false, error: res.error || "Half-hour upsert unsupported", inserted: 0, skipped: 0 };
   }
   return { ok: false, error: res.error || `HTTP ${res.status}`, inserted: 0, skipped: 0 };
+}
+async function recordIngestBatchMetrics({
+  serviceClient,
+  baseUrl,
+  anonKey,
+  tokenHash,
+  tokenRow,
+  bucketCount,
+  inserted,
+  skipped,
+  source
+}) {
+  if (!tokenRow) return;
+  const row = {
+    user_id: tokenRow.user_id,
+    device_id: tokenRow.device_id,
+    device_token_id: tokenRow.id,
+    source: typeof source === "string" ? source : null,
+    bucket_count: toNonNegativeInt(bucketCount) ?? 0,
+    inserted: toNonNegativeInt(inserted) ?? 0,
+    skipped: toNonNegativeInt(skipped) ?? 0
+  };
+  try {
+    if (serviceClient) {
+      const { error } = await serviceClient.database.from("vibescore_tracker_ingest_batches").insert(row);
+      if (error) throw new Error(error.message);
+      return;
+    }
+    if (!anonKey || !baseUrl) return;
+    const url = new URL("/api/database/records/vibescore_tracker_ingest_batches", baseUrl);
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        ...buildAnonHeaders({ anonKey, tokenHash }),
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(row)
+    });
+    if (!res.ok) {
+      const { error } = await readApiJson(res);
+      throw new Error(error || `HTTP ${res.status}`);
+    }
+  } catch (_e) {
+  }
 }
 async function bestEffortTouchWithServiceClient(serviceClient, tokenRow, nowIso) {
   const lastSyncAt = normalizeIso(tokenRow?.last_sync_at);
