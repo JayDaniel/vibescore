@@ -40,7 +40,7 @@ We believe your code and thoughts are your own. VibeScore is built with strict p
 
 ## 🚀 Key Features
 
-- 📡 **Live Sniffer**: Real-time interception of Codex CLI pipes using low-level hooks to capture every completion event.
+- 📡 **Live Sniffer & Auto-Sync**: Real-time interception of Codex CLI pipes with **automatic background synchronization**. Once initialized, your tokens are tracked and synced without any manual commands.
 - 🧭 **Multi-source Ingestion**: Supports Codex CLI and Every Code (tagged as `source=every-code`) without modifying Every Code.
 - 📊 **Matrix Dashboard**: A high-performance React + Vite dashboard featuring heatmaps, trend charts, and live logs.
 - ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
@@ -54,24 +54,26 @@ We believe your code and thoughts are your own. VibeScore is built with strict p
 
 ### Installation
 
-Initialize your environment with a single command:
+Initialize your environment once and forget it. VibeScore handles all synchronization in the background automatically.
 
 ```bash
 npx --yes @vibescore/tracker init
 ```
 
-Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically; it will not create the file when missing.
-Init also kicks off a best-effort background sync without blocking installation.
+Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically. No further user intervention is required for data sync.
 
 ### Sync & Status
 
+````bash
+While sync happens automatically, you can manually trigger a synchronization or check status anytime:
+
 ```bash
-# Sync latest local session data
+# Manually sync latest local session data (Optional)
 npx --yes @vibescore/tracker sync
 
 # Check current link status
 npx --yes @vibescore/tracker status
-```
+````
 
 ### Sources
 

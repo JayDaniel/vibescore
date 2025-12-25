@@ -40,7 +40,7 @@ _Codex CLI 实时 AI 分析工具_
 
 ## 🚀 核心功能
 
-- 📡 **Live Sniffer (实时嗅探)**: 实时监听 Codex CLI 管道，通过底层 Hook 捕获每一次补全事件。
+- 📡 **自动嗅探与同步 (Auto-Sync)**: 实时监听 Codex CLI 管道并具备**全自动后台同步**功能。初始化后，你的 Token 产出将自动追踪并同步，无需手动执行脚本。
 - 🧭 **多来源采集**：支持 Codex CLI 与 Every Code（标记为 `source=every-code`），无需修改 Every Code 客户端。
 - 📊 **Matrix Dashboard (矩阵控制台)**: 基于 React + Vite 的高性能仪表盘，具备热力图、趋势图与实时日志。
 - ⚡ **AI Analytics (AI 分析)**: 深度分析 Input/Output Token，支持缓存 (Cached) 与推理 (Reasoning) 部分的分离监控。
@@ -54,23 +54,26 @@ _Codex CLI 实时 AI 分析工具_
 
 ### 安装
 
-只需一行命令，即可初始化环境：
+只需一次初始化，即可变身为“自动驾驶”模式。VibeScore 会在后台处理所有数据同步，你只需专注开发。
 
 ```bash
 npx --yes @vibescore/tracker init
 ```
 
-说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`；缺失时不会创建该文件。`init` 还会触发一次后台同步尝试，但不会阻塞安装流程。
+说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`。配置完成后，数据同步完全自动化，无需后续人工干预。
 
 ### 同步与状态查看
 
+````bash
+虽然同步是自动完成的，但你仍可以随时手动触发同步或查看状态：
+
 ```bash
-# 同步最新的本地会话数据
+# 手动同步最新的本地会话数据 (可选)
 npx --yes @vibescore/tracker sync
 
 # 查看当前连接状态
 npx --yes @vibescore/tracker status
-```
+````
 
 ### 日志来源
 
