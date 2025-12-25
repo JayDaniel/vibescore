@@ -17,6 +17,15 @@
 - Edge functions updated successfully (see Evidence).
 - Live ingest probe returned `502 Bad Gateway`; metrics table query could not be executed afterwards due to upstream HTML error.
 
+## 2025-12-25 Local Verification
+### Tests Run
+- `node scripts/acceptance/ingest-batch-metrics.cjs`
+- `node --test test/edge-functions.test.js`
+
+### Results
+- Acceptance script passed (`metrics-ok` + `metrics-fail` scenarios).
+- `test/edge-functions.test.js` passed after updating anonKey ingest expectations to include ingest batch metrics call.
+
 ## Evidence
 - `scripts/acceptance/ingest-batch-metrics.cjs` output:
   - `metrics-ok` inserted=2 skipped=0 metrics_inserted=true metrics_source=mixed
