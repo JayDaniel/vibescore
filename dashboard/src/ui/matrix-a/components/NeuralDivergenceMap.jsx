@@ -28,6 +28,7 @@ export const NeuralDivergenceMap = React.memo(function NeuralDivergenceMap({
               <NeuralAdaptiveFleet
                 label={fleet.label}
                 totalPercent={fleet.totalPercent}
+                usage={fleet._tokens}
                 models={fleet.models}
               />
             </div>

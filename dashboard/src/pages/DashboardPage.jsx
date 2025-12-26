@@ -10,7 +10,11 @@ import {
   paginateRows,
   trimLeadingZeroMonths,
 } from "../lib/details.js";
-import { formatUsdCurrency, toDisplayNumber, toFiniteNumber } from "../lib/format.js";
+import {
+  formatUsdCurrency,
+  toDisplayNumber,
+  toFiniteNumber,
+} from "../lib/format.js";
 import { useActivityHeatmap } from "../hooks/use-activity-heatmap.js";
 import { useTrendData } from "../hooks/use-trend-data.js";
 import { useUsageData } from "../hooks/use-usage-data.js";
@@ -402,45 +406,50 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
 
     if (!sources.length) return [];
 
-    const grandTotal = sources.reduce((acc, entry) => acc + entry.totalTokens, 0);
+    const grandTotal = sources.reduce(
+      (acc, entry) => acc + entry.totalTokens,
+      0
+    );
     const pricingMode =
       typeof modelBreakdown?.pricing?.pricing_mode === "string"
         ? modelBreakdown.pricing.pricing_mode.toUpperCase()
         : null;
 
-    return sources
-      .map((entry) => {
-        const label = entry.source
-          ? String(entry.source).toUpperCase()
-          : copy("shared.placeholder.short");
-        const totalPercentRaw =
-          grandTotal > 0 ? (entry.totalTokens / grandTotal) * 100 : 0;
-        const totalPercent = Number.isFinite(totalPercentRaw)
-          ? totalPercentRaw.toFixed(1)
-          : "0.0";
-        const models = entry.models
-          .map((model) => {
-            const modelTokens = toFiniteNumber(model?.totals?.total_tokens);
-            if (!Number.isFinite(modelTokens) || modelTokens <= 0) return null;
-            const share =
-              entry.totalTokens > 0
-                ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10
-                : 0;
-            const name = model?.model
-              ? String(model.model)
-              : copy("shared.placeholder.short");
-            return { name, share, calc: pricingMode };
-          })
-          .filter(Boolean);
-        return {
-          label,
-          totalPercent: String(totalPercent),
-          usd: entry.totalCost,
-          models,
-          _tokens: entry.totalTokens,
-        };
-      })
-      .sort((a, b) => b._tokens - a._tokens)
+    return (
+      sources
+        .map((entry) => {
+          const label = entry.source
+            ? String(entry.source).toUpperCase()
+            : copy("shared.placeholder.short");
+          const totalPercentRaw =
+            grandTotal > 0 ? (entry.totalTokens / grandTotal) * 100 : 0;
+          const totalPercent = Number.isFinite(totalPercentRaw)
+            ? totalPercentRaw.toFixed(1)
+            : "0.0";
+          const models = entry.models
+            .map((model) => {
+              const modelTokens = toFiniteNumber(model?.totals?.total_tokens);
+              if (!Number.isFinite(modelTokens) || modelTokens <= 0)
+                return null;
+              const share =
+                entry.totalTokens > 0
+                  ? Math.round((modelTokens / entry.totalTokens) * 1000) / 10
+                  : 0;
+              const name = model?.model
+                ? String(model.model)
+                : copy("shared.placeholder.short");
+              return { name, share, calc: pricingMode };
+            })
+            .filter(Boolean);
+          return {
+            label,
+            totalPercent: String(totalPercent),
+            usd: entry.totalCost,
+            models,
+            _tokens: entry.totalTokens,
+          };
+        })
+        .sort((a, b) => b._tokens - a._tokens)
       .map(({ _tokens, ...rest }) => rest);
   }, [modelBreakdown?.pricing?.pricing_mode, modelBreakdownSources]);
 
@@ -553,283 +562,280 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   return (
     <>
       <MatrixShell
-      headerStatus={
-        <BackendStatus
-          baseUrl={baseUrl}
-          accessToken={auth?.accessToken || null}
-        />
-      }
-      headerRight={headerRight}
-      footerLeft={
-        accessEnabled ? (
-          <span>
-            {copy("dashboard.footer.active", { range: timeZoneRangeLabel })}
-          </span>
-        ) : (
-          <span>{copy("dashboard.footer.auth")}</span>
-        )
-      }
-      footerRight={
-        <span className="font-bold">{copy("dashboard.footer.right")}</span>
-      }
-    >
-      {requireAuthGate ? (
-        <div className="flex items-center justify-center">
-          <AsciiBox
-            title={copy("dashboard.auth_required.title")}
-            subtitle={copy("dashboard.auth_required.subtitle")}
-            className="w-full max-w-2xl"
-          >
-            <p className="text-[10px] opacity-50 mt-0">
-              {copy("dashboard.auth_required.body")}
-            </p>
-
-            <div className="flex flex-wrap gap-3 mt-4">
-              <MatrixButton as="a" primary href={signInUrl}>
-                {copy("shared.button.sign_in")}
-              </MatrixButton>
-              <MatrixButton as="a" href={signUpUrl}>
-                {copy("shared.button.sign_up")}
-              </MatrixButton>
-            </div>
-          </AsciiBox>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
-            <IdentityCard
-              title={copy("dashboard.identity.title")}
-              subtitle={copy("dashboard.identity.subtitle")}
-              name={identityHandle}
-              isPublic
-              rankLabel={copy("identity_card.rank_placeholder")}
-              streakDays={streakDays}
-            />
-
-            {!signedIn ? (
-              <AsciiBox
-                title={copy("dashboard.auth_optional.title")}
-                subtitle={copy("dashboard.auth_optional.subtitle")}
-              >
-                <p className="text-[10px] opacity-50 mt-0">
-                  {copy("dashboard.auth_optional.body")}
-                </p>
-                <div className="flex flex-wrap gap-3 mt-4">
-                  <MatrixButton as="a" primary href={signInUrl}>
-                    {copy("shared.button.sign_in")}
-                  </MatrixButton>
-                  <MatrixButton as="a" href={signUpUrl}>
-                    {copy("shared.button.sign_up")}
-                  </MatrixButton>
-                </div>
-              </AsciiBox>
-            ) : null}
-
+        headerStatus={
+          <BackendStatus
+            baseUrl={baseUrl}
+            accessToken={auth?.accessToken || null}
+          />
+        }
+        headerRight={headerRight}
+        footerLeft={
+          accessEnabled ? (
+            <span>
+              {copy("dashboard.footer.active", { range: timeZoneRangeLabel })}
+            </span>
+          ) : (
+            <span>{copy("dashboard.footer.auth")}</span>
+          )
+        }
+        footerRight={
+          <span className="font-bold">{copy("dashboard.footer.right")}</span>
+        }
+      >
+        {requireAuthGate ? (
+          <div className="flex items-center justify-center">
             <AsciiBox
-              title={copy("dashboard.install.title")}
-              subtitle={copy("dashboard.install.subtitle")}
-              className="relative"
+              title={copy("dashboard.auth_required.title")}
+              subtitle={copy("dashboard.auth_required.subtitle")}
+              className="w-full max-w-2xl"
             >
-              <div className="text-[9px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+              <p className="text-[10px] opacity-50 mt-0">
+                {copy("dashboard.auth_required.body")}
+              </p>
+
+              <div className="flex flex-wrap gap-3 mt-4">
+                <MatrixButton as="a" primary href={signInUrl}>
+                  {copy("shared.button.sign_in")}
+                </MatrixButton>
+                <MatrixButton as="a" href={signUpUrl}>
+                  {copy("shared.button.sign_up")}
+                </MatrixButton>
+              </div>
+            </AsciiBox>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
+              <IdentityCard
+                title={copy("dashboard.identity.title")}
+                subtitle={copy("dashboard.identity.subtitle")}
+                name={identityHandle}
+                isPublic
+                rankLabel={copy("identity_card.rank_placeholder")}
+                streakDays={streakDays}
+              />
+
+              {!signedIn ? (
+                <AsciiBox
+                  title={copy("dashboard.auth_optional.title")}
+                  subtitle={copy("dashboard.auth_optional.subtitle")}
+                >
+                  <p className="text-[10px] opacity-50 mt-0">
+                    {copy("dashboard.auth_optional.body")}
+                  </p>
+                  <div className="flex flex-wrap gap-3 mt-4">
+                    <MatrixButton as="a" primary href={signInUrl}>
+                      {copy("shared.button.sign_in")}
+                    </MatrixButton>
+                    <MatrixButton as="a" href={signUpUrl}>
+                      {copy("shared.button.sign_up")}
+                    </MatrixButton>
+                  </div>
+                </AsciiBox>
+              ) : null}
+
+              <AsciiBox
+                title={copy("dashboard.install.title")}
+                subtitle={copy("dashboard.install.subtitle")}
+                className="relative"
+              >
+                <div className="text-[9px] uppercase tracking-[0.25em] font-black text-[#00FF41]">
+                  <TypewriterText
+                    text={installHeadline}
+                    startDelayMs={installHeadlineDelayMs}
+                    speedMs={installHeadlineSpeedMs}
+                    cursor={false}
+                    active={shouldAnimateInstall}
+                  />
+                </div>
                 <TypewriterText
-                  text={installHeadline}
-                  startDelayMs={installHeadlineDelayMs}
-                  speedMs={installHeadlineSpeedMs}
+                  className="text-[10px] opacity-50 mt-2"
+                  segments={installSegments}
+                  startDelayMs={installBodyDelayMs}
+                  speedMs={installBodySpeedMs}
                   cursor={false}
+                  wrap
                   active={shouldAnimateInstall}
                 />
-              </div>
-              <TypewriterText
-                className="text-[10px] opacity-50 mt-2"
-                segments={installSegments}
-                startDelayMs={installBodyDelayMs}
-                speedMs={installBodySpeedMs}
-                cursor={false}
-                wrap
-                active={shouldAnimateInstall}
-              />
-            </AsciiBox>
+              </AsciiBox>
 
-            <AsciiBox
-              title={copy("dashboard.activity.title")}
-              subtitle={
-                accessEnabled ? copy("dashboard.activity.subtitle") : "—"
-              }
-              className="min-w-0 overflow-hidden"
-            >
-              <ActivityHeatmap
-                heatmap={heatmap}
-                timeZoneLabel={timeZoneLabel}
-                timeZoneShortLabel={timeZoneShortLabel}
-              />
-              <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                {copy("dashboard.activity.range", {
-                  from: heatmapFrom,
-                  to: heatmapTo,
-                })}{" "}
-                {timeZoneRangeLabel}
-              </div>
-              <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                {heatmapSourceLabel}
-              </div>
-            </AsciiBox>
-          </div>
-
-          <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
-            <UsagePanel
-              title={copy("usage.panel.title")}
-              period={period}
-              periods={PERIODS}
-              onPeriodChange={setPeriod}
-              metrics={metricsRows}
-              showSummary={period === "total"}
-              useSummaryLayout
-              summaryLabel={summaryLabel}
-              summaryValue={toDisplayNumber(summary?.total_tokens)}
-              summaryCostValue={summaryCostValue}
-              onCostInfo={costInfoEnabled ? openCostModal : null}
-              onRefresh={refreshAll}
-              loading={usageLoadingState}
-              error={usageError}
-              rangeLabel={rangeLabel}
-              rangeTimeZoneLabel={timeZoneRangeLabel}
-              statusLabel={usageSourceLabel}
-            />
-
-            <NeuralDivergenceMap
-              fleetData={fleetData}
-              className="min-w-0"
-            />
-
-            <TrendMonitor
-              rows={trendRowsForDisplay}
-              from={trendFromForDisplay}
-              to={trendToForDisplay}
-              period={period}
-              timeZoneLabel={trendTimeZoneLabel}
-              showTimeZoneLabel={false}
-            />
-
-            <AsciiBox
-              title={copy("dashboard.daily.title")}
-              subtitle={copy("dashboard.daily.subtitle")}
-            >
-              {!hasDetailsActual ? (
-                <div className="text-[10px] opacity-40 mb-2">
-                  {dailyEmptyPrefix}
-                  <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
-                    {installSyncCmd}
-                  </code>
-                  {dailyEmptySuffix}
-                </div>
-              ) : null}
-              <div
-                className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
-                role="region"
-                aria-label={copy("daily.table.aria_label")}
-                tabIndex={0}
+              <AsciiBox
+                title={copy("dashboard.activity.title")}
+                subtitle={
+                  accessEnabled ? copy("dashboard.activity.subtitle") : "—"
+                }
+                className="min-w-0 overflow-hidden"
               >
-                <table className="w-full border-collapse">
-                  <thead className="sticky top-0 bg-black/90">
-                    <tr className="border-b border-[#00FF41]/10">
-                      {detailsColumns.map((c) => (
-                        <th
-                          key={c.key}
-                          aria-sort={ariaSortFor(c.key)}
-                          className="text-left p-0"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => toggleSort(c.key)}
-                            title={c.title}
-                            className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
-                          >
-                            <span className="inline-flex items-center gap-2">
-                              <span>{c.label}</span>
-                              <span className="opacity-40">
-                                {sortIconFor(c.key)}
-                              </span>
-                            </span>
-                          </button>
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pagedDetails.map((r) => (
-                      <tr
-                        key={String(
-                          r?.[detailsDateKey] ||
-                            r?.day ||
-                            r?.hour ||
-                            r?.month ||
-                            ""
-                        )}
-                        className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
-                          r.missing
-                            ? "text-[#00FF41]/50"
-                            : r.future
-                            ? "text-[#00FF41]/30"
-                            : ""
-                        }`}
-                      >
-                        <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
-                          {renderDetailDate(r)}
-                        </td>
-                        <td className="px-3 py-2 text-[10px] font-mono">
-                          {renderDetailCell(r, "total_tokens")}
-                        </td>
-                        <td className="px-3 py-2 text-[10px] font-mono">
-                          {renderDetailCell(r, "input_tokens")}
-                        </td>
-                        <td className="px-3 py-2 text-[10px] font-mono">
-                          {renderDetailCell(r, "output_tokens")}
-                        </td>
-                        <td className="px-3 py-2 text-[10px] font-mono">
-                          {renderDetailCell(r, "cached_input_tokens")}
-                        </td>
-                        <td className="px-3 py-2 text-[10px] font-mono">
-                          {renderDetailCell(r, "reasoning_output_tokens")}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
-                <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
-                  <MatrixButton
-                    type="button"
-                    onClick={() =>
-                      setDetailsPage((prev) => Math.max(0, prev - 1))
-                    }
-                    disabled={detailsPage === 0}
-                  >
-                    {copy("details.pagination.prev")}
-                  </MatrixButton>
-                  <span className="opacity-50">
-                    {copy("details.pagination.page", {
-                      page: detailsPage + 1,
-                      total: detailsPageCount,
-                    })}
-                  </span>
-                  <MatrixButton
-                    type="button"
-                    onClick={() =>
-                      setDetailsPage((prev) =>
-                        Math.min(detailsPageCount - 1, prev + 1)
-                      )
-                    }
-                    disabled={detailsPage + 1 >= detailsPageCount}
-                  >
-                    {copy("details.pagination.next")}
-                  </MatrixButton>
+                <ActivityHeatmap
+                  heatmap={heatmap}
+                  timeZoneLabel={timeZoneLabel}
+                  timeZoneShortLabel={timeZoneShortLabel}
+                />
+                <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
+                  {copy("dashboard.activity.range", {
+                    from: heatmapFrom,
+                    to: heatmapTo,
+                  })}{" "}
+                  {timeZoneRangeLabel}
                 </div>
-              ) : null}
-            </AsciiBox>
+                <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
+                  {heatmapSourceLabel}
+                </div>
+              </AsciiBox>
+            </div>
+
+            <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
+              <UsagePanel
+                title={copy("usage.panel.title")}
+                period={period}
+                periods={PERIODS}
+                onPeriodChange={setPeriod}
+                metrics={metricsRows}
+                showSummary={period === "total"}
+                useSummaryLayout
+                summaryLabel={summaryLabel}
+                summaryValue={toDisplayNumber(summary?.total_tokens)}
+                summaryCostValue={summaryCostValue}
+                onCostInfo={costInfoEnabled ? openCostModal : null}
+                onRefresh={refreshAll}
+                loading={usageLoadingState}
+                error={usageError}
+                rangeLabel={rangeLabel}
+                rangeTimeZoneLabel={timeZoneRangeLabel}
+                statusLabel={usageSourceLabel}
+              />
+
+              <NeuralDivergenceMap fleetData={fleetData} className="min-w-0" />
+
+              <TrendMonitor
+                rows={trendRowsForDisplay}
+                from={trendFromForDisplay}
+                to={trendToForDisplay}
+                period={period}
+                timeZoneLabel={trendTimeZoneLabel}
+                showTimeZoneLabel={false}
+              />
+
+              <AsciiBox
+                title={copy("dashboard.daily.title")}
+                subtitle={copy("dashboard.daily.subtitle")}
+              >
+                {!hasDetailsActual ? (
+                  <div className="text-[10px] opacity-40 mb-2">
+                    {dailyEmptyPrefix}
+                    <code className="px-1 py-0.5 bg-black/40 border border-[#00FF41]/20">
+                      {installSyncCmd}
+                    </code>
+                    {dailyEmptySuffix}
+                  </div>
+                ) : null}
+                <div
+                  className="overflow-auto max-h-[520px] border border-[#00FF41]/10"
+                  role="region"
+                  aria-label={copy("daily.table.aria_label")}
+                  tabIndex={0}
+                >
+                  <table className="w-full border-collapse">
+                    <thead className="sticky top-0 bg-black/90">
+                      <tr className="border-b border-[#00FF41]/10">
+                        {detailsColumns.map((c) => (
+                          <th
+                            key={c.key}
+                            aria-sort={ariaSortFor(c.key)}
+                            className="text-left p-0"
+                          >
+                            <button
+                              type="button"
+                              onClick={() => toggleSort(c.key)}
+                              title={c.title}
+                              className="w-full px-3 py-2 text-left text-[9px] uppercase tracking-widest font-black opacity-70 hover:opacity-100 hover:bg-[#00FF41]/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00FF41]/30 flex items-center justify-start"
+                            >
+                              <span className="inline-flex items-center gap-2">
+                                <span>{c.label}</span>
+                                <span className="opacity-40">
+                                  {sortIconFor(c.key)}
+                                </span>
+                              </span>
+                            </button>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pagedDetails.map((r) => (
+                        <tr
+                          key={String(
+                            r?.[detailsDateKey] ||
+                              r?.day ||
+                              r?.hour ||
+                              r?.month ||
+                              ""
+                          )}
+                          className={`border-b border-[#00FF41]/5 hover:bg-[#00FF41]/5 ${
+                            r.missing
+                              ? "text-[#00FF41]/50"
+                              : r.future
+                              ? "text-[#00FF41]/30"
+                              : ""
+                          }`}
+                        >
+                          <td className="px-3 py-2 text-[10px] opacity-80 font-mono">
+                            {renderDetailDate(r)}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDetailCell(r, "total_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDetailCell(r, "input_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDetailCell(r, "output_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDetailCell(r, "cached_input_tokens")}
+                          </td>
+                          <td className="px-3 py-2 text-[10px] font-mono">
+                            {renderDetailCell(r, "reasoning_output_tokens")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {DETAILS_PAGED_PERIODS.has(period) && detailsPageCount > 1 ? (
+                  <div className="flex items-center justify-between mt-3 text-[9px] uppercase tracking-widest font-black">
+                    <MatrixButton
+                      type="button"
+                      onClick={() =>
+                        setDetailsPage((prev) => Math.max(0, prev - 1))
+                      }
+                      disabled={detailsPage === 0}
+                    >
+                      {copy("details.pagination.prev")}
+                    </MatrixButton>
+                    <span className="opacity-50">
+                      {copy("details.pagination.page", {
+                        page: detailsPage + 1,
+                        total: detailsPageCount,
+                      })}
+                    </span>
+                    <MatrixButton
+                      type="button"
+                      onClick={() =>
+                        setDetailsPage((prev) =>
+                          Math.min(detailsPageCount - 1, prev + 1)
+                        )
+                      }
+                      disabled={detailsPage + 1 >= detailsPageCount}
+                    >
+                      {copy("details.pagination.next")}
+                    </MatrixButton>
+                  </div>
+                ) : null}
+              </AsciiBox>
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </MatrixShell>
       <CostAnalysisModal
         isOpen={costModalOpen}

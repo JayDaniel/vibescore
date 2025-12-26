@@ -6,16 +6,29 @@ import { TEXTURES } from "./MatrixConstants.js";
 export const NeuralAdaptiveFleet = React.memo(function NeuralAdaptiveFleet({
   label,
   totalPercent,
+  usage = 0,
   models = [],
 }) {
   const percentSymbol = copy("shared.unit.percent");
 
+  const formatVolume = (val) => {
+    if (!val) return "0";
+    if (val >= 1000000) return (val / 1000000).toFixed(1) + "M";
+    if (val >= 1000) return (val / 1000).toFixed(1) + "K";
+    return val.toString();
+  };
+
   return (
     <div className="w-full space-y-4">
       <div className="flex justify-between items-baseline border-b border-[#00FF41]/10 pb-1.5">
-        <span className="text-[12px] font-black text-white uppercase tracking-[0.2em]">
-          {label}
-        </span>
+        <div className="flex items-baseline gap-2">
+          <span className="text-[12px] font-black text-white uppercase tracking-[0.2em]">
+            {label}
+          </span>
+          <span className="text-[9px] font-mono text-[#00FF41]/60 tracking-wider">
+            Usage: {formatVolume(usage)}
+          </span>
+        </div>
         <div className="flex items-baseline space-x-1">
           <span className="text-[11px] font-black text-[#00FF41] font-mono">
             {totalPercent}
