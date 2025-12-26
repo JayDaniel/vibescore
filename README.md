@@ -25,7 +25,7 @@ _Real-time AI Analytics for Codex CLI_
 
 ## 🌌 Overview
 
-**VibeScore** is an intelligent token usage tracking system designed specifically for macOS developers. It monitors Codex CLI output in real-time, transforming your **AI Output** into quantifiable metrics via a high-fidelity, **Matrix-themed** dashboard.
+**VibeScore** is an intelligent token usage tracking system designed specifically for macOS developers. Through the all-new **Matrix-A Design System**, it provides a high-fidelity cyberpunk-style dashboard that transforms your **AI Output** into quantifiable metrics, supported by the **Neural Divergence Map** for real-time monitoring of multi-model compute distribution.
 
 > [!TIP] > **Core Index**: Our signature metric that reflects your flow state by analyzing token consumption rates and patterns.
 
@@ -40,9 +40,12 @@ We believe your code and thoughts are your own. VibeScore is built with strict p
 
 ## 🚀 Key Features
 
-- 📡 **Live Sniffer & Auto-Sync**: Real-time interception of Codex CLI pipes with **automatic background synchronization**. Once initialized, your tokens are tracked and synced without any manual commands.
-- 🧭 **Multi-source Ingestion**: Supports Codex CLI and Every Code (tagged as `source=every-code`) without modifying Every Code.
-- 📊 **Matrix Dashboard**: A high-performance React + Vite dashboard featuring heatmaps, trend charts, and live logs.
+- 📡 **Auto-Sync**: Real-time interception of Codex CLI pipes with **automatic background synchronization**. Once initialized, your tokens are tracked and synced without any manual commands.
+- 🧭 **Universal-Sync**: Native support for **Codex CLI**, **Every Code**, and the latest **Claude Code**. Whether it's GPT-4, Claude 3.5 Sonnet, or o1/Gemini, token consumption from all models is unified and counted.
+- 📊 **Matrix Dashboard**: High-performance dashboard built with React + Vite, featuring the new **Matrix-A** design language.
+  - **Neural Divergence Map**: Visualize multi-engine load balancing and compute distribution.
+  - **Cost Intelligence**: Real-time, multi-dimensional cost breakdown and forecasting.
+  - **Smart Notifications**: Non-intrusive system-level alerts using a Golden (Gold/Amber) visual style for high-value information.
 - ⚡ **AI Analytics**: Deep analysis of Input/Output tokens, with dedicated tracking for Cached and Reasoning components.
 - 🔒 **Identity Core**: Robust authentication and permission management to secure your development data.
 
