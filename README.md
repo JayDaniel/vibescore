@@ -82,11 +82,13 @@ npx --yes @vibescore/tracker status
 
 - Codex CLI logs: `~/.codex/sessions/**/rollout-*.jsonl` (override with `CODEX_HOME`)
 - Every Code logs: `~/.code/sessions/**/rollout-*.jsonl` (override with `CODE_HOME`)
+- Gemini CLI logs: `~/.gemini/tmp/**/chats/session-*.json` (override with `GEMINI_HOME`)
 
 ## 🔧 Environment Variables
 
 - `VIBESCORE_HTTP_TIMEOUT_MS`: CLI HTTP timeout in ms (default `20000`, `0` disables, clamped to `1000..120000`).
 - `VITE_VIBESCORE_HTTP_TIMEOUT_MS`: Dashboard request timeout in ms (default `15000`, `0` disables, clamped to `1000..30000`).
+- `GEMINI_HOME`: Override Gemini CLI home (defaults to `~/.gemini`).
 
 ## 🧰 Troubleshooting
 

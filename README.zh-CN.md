@@ -82,11 +82,13 @@ npx --yes @vibescore/tracker status
 
 - Codex CLI 日志：`~/.codex/sessions/**/rollout-*.jsonl`（可用 `CODEX_HOME` 覆盖）
 - Every Code 日志：`~/.code/sessions/**/rollout-*.jsonl`（可用 `CODE_HOME` 覆盖）
+- Gemini CLI 日志：`~/.gemini/tmp/**/chats/session-*.json`（可用 `GEMINI_HOME` 覆盖）
 
 ## 🔧 环境变量
 
 - `VIBESCORE_HTTP_TIMEOUT_MS`：CLI 请求超时（毫秒，默认 `20000`，`0` 表示关闭，范围 `1000..120000`）。
 - `VITE_VIBESCORE_HTTP_TIMEOUT_MS`：Dashboard 请求超时（毫秒，默认 `15000`，`0` 表示关闭，范围 `1000..30000`）。
+- `GEMINI_HOME`：覆盖 Gemini CLI 的 home（默认 `~/.gemini`）。
 
 ## 🧰 常见问题
 
