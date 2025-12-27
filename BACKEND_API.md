@@ -175,6 +175,93 @@ Response:
 
 ---
 
+### GET /functions/vibescore-user-status
+
+Return Pro status for the authenticated user.
+
+Auth:
+- `Authorization: Bearer <user_jwt>`
+
+Response:
+
+```json
+{
+  "user_id": "uuid",
+  "created_at": "iso",
+  "pro": {
+    "active": true,
+    "sources": ["registration_cutoff", "entitlement"],
+    "expires_at": "iso",
+    "as_of": "iso"
+  }
+}
+```
+
+Notes:
+- Registration cutoff is fixed at `2025-12-31T23:59:59` Asia/Shanghai (`2025-12-31T15:59:59Z`).
+- Registration-based Pro expires at `created_at + 99 years`.
+- Entitlements are active when `now_utc` is in `[effective_from, effective_to)` and `revoked_at IS NULL`.
+
+---
+
+### POST /functions/vibescore-entitlements
+
+Grant an entitlement for a user (admin only).
+
+Auth:
+- `Authorization: Bearer <service_role_key>`
+
+Request body:
+
+```json
+{
+  "user_id": "uuid",
+  "source": "paid|override|manual",
+  "effective_from": "iso",
+  "effective_to": "iso",
+  "note": "string?"
+}
+```
+
+Response:
+
+```json
+{
+  "id": "uuid",
+  "user_id": "uuid",
+  "source": "manual",
+  "effective_from": "iso",
+  "effective_to": "iso",
+  "revoked_at": null,
+  "note": "string?",
+  "created_at": "iso",
+  "updated_at": "iso"
+}
+```
+
+---
+
+### POST /functions/vibescore-entitlements-revoke
+
+Revoke an entitlement by id (admin only).
+
+Auth:
+- `Authorization: Bearer <service_role_key>`
+
+Request body:
+
+```json
+{ "id": "uuid", "revoked_at": "iso?" }
+```
+
+Response:
+
+```json
+{ "id": "uuid", "revoked_at": "iso" }
+```
+
+---
+
 ### GET /functions/vibescore-usage-summary
 
 Return token usage totals for the authenticated user over a date range in the requested timezone (default UTC).
