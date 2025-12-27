@@ -767,6 +767,59 @@ test('parseRolloutIncremental retracts prior every-code alignment when target ch
   }
 });
 
+test('parseRolloutIncremental retracts unknown when known model appears later', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
+  try {
+    const rolloutPath = path.join(tmp, 'rollout-test.jsonl');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const usageUnknown = { input_tokens: 1, cached_input_tokens: 0, output_tokens: 0, reasoning_output_tokens: 0, total_tokens: 1 };
+    const usageKnown = { input_tokens: 2, cached_input_tokens: 0, output_tokens: 1, reasoning_output_tokens: 0, total_tokens: 3 };
+    const totalsKnown = {
+      input_tokens: usageUnknown.input_tokens + usageKnown.input_tokens,
+      cached_input_tokens: 0,
+      output_tokens: usageUnknown.output_tokens + usageKnown.output_tokens,
+      reasoning_output_tokens: 0,
+      total_tokens: usageUnknown.total_tokens + usageKnown.total_tokens
+    };
+
+    const lines = [
+      buildTokenCountLine({ ts: '2025-12-17T00:05:00.000Z', last: usageUnknown, total: usageUnknown })
+    ];
+    await fs.writeFile(rolloutPath, lines.join('\n') + '\n', 'utf8');
+
+    let res = await parseRolloutIncremental({ rolloutFiles: [rolloutPath], cursors, queuePath });
+    assert.equal(res.bucketsQueued, 1);
+
+    let queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].model, 'unknown');
+    assert.equal(queued[0].total_tokens, usageUnknown.total_tokens);
+
+    const append = [
+      buildTurnContextLine({ model: 'gpt-4o' }),
+      buildTokenCountLine({ ts: '2025-12-17T00:10:00.000Z', last: usageKnown, total: totalsKnown })
+    ];
+    await fs.appendFile(rolloutPath, append.join('\n') + '\n', 'utf8');
+
+    res = await parseRolloutIncremental({ rolloutFiles: [rolloutPath], cursors, queuePath });
+    assert.equal(res.bucketsQueued, 2);
+
+    queued = await readJsonLines(queuePath);
+    const sameHour = queued.filter((row) => row.hour_start === '2025-12-17T00:00:00.000Z');
+    const unknownRows = sameHour.filter((row) => row.model === 'unknown');
+    assert.equal(unknownRows.length, 2);
+    const unknownTotals = unknownRows.map((row) => row.total_tokens).sort((a, b) => a - b);
+    assert.deepEqual(unknownTotals, [0, usageUnknown.total_tokens]);
+
+    const knownRow = sameHour.find((row) => row.model === 'gpt-4o');
+    assert.equal(knownRow?.total_tokens, usageKnown.total_tokens + usageUnknown.total_tokens);
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseClaudeIncremental aggregates usage into half-hour buckets', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-claude-'));
   try {

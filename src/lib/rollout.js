@@ -511,10 +511,11 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
       const normalized = normalizeModelInput(unknownBucket.alignedModel);
       alignedModel = normalized && normalized !== DEFAULT_MODEL ? normalized : null;
     }
+    const zeroTotals = initTotals();
+    const zeroKey = totalsKey(zeroTotals);
 
     if (dominantModel) {
       if (alignedModel && !group.buckets.has(alignedModel)) {
-        const zeroTotals = initTotals();
         toAppend.push(
           JSON.stringify({
             source: group.source,
@@ -527,6 +528,23 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
             total_tokens: zeroTotals.total_tokens
           })
         );
+      }
+      if (unknownBucket && !alignedModel && unknownBucket.queuedKey && unknownBucket.queuedKey !== zeroKey) {
+        if (unknownBucket.retractedUnknownKey !== zeroKey) {
+          toAppend.push(
+            JSON.stringify({
+              source: group.source,
+              model: DEFAULT_MODEL,
+              hour_start: group.hourStart,
+              input_tokens: zeroTotals.input_tokens,
+              cached_input_tokens: zeroTotals.cached_input_tokens,
+              output_tokens: zeroTotals.output_tokens,
+              reasoning_output_tokens: zeroTotals.reasoning_output_tokens,
+              total_tokens: zeroTotals.total_tokens
+            })
+          );
+          unknownBucket.retractedUnknownKey = zeroKey;
+        }
       }
       if (unknownBucket) unknownBucket.alignedModel = null;
       for (const [model, bucket] of group.buckets.entries()) {
@@ -563,7 +581,6 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
     }
     const nextAligned = outputModel !== DEFAULT_MODEL ? outputModel : null;
     if (alignedModel && alignedModel !== nextAligned) {
-      const zeroTotals = initTotals();
       toAppend.push(
         JSON.stringify({
           source: group.source,
@@ -576,6 +593,23 @@ async function enqueueTouchedBuckets({ queuePath, hourlyState, touchedBuckets })
           total_tokens: zeroTotals.total_tokens
         })
       );
+    }
+    if (!alignedModel && nextAligned && unknownBucket.queuedKey && unknownBucket.queuedKey !== zeroKey) {
+      if (unknownBucket.retractedUnknownKey !== zeroKey) {
+        toAppend.push(
+          JSON.stringify({
+            source: group.source,
+            model: DEFAULT_MODEL,
+            hour_start: group.hourStart,
+            input_tokens: zeroTotals.input_tokens,
+            cached_input_tokens: zeroTotals.cached_input_tokens,
+            output_tokens: zeroTotals.output_tokens,
+            reasoning_output_tokens: zeroTotals.reasoning_output_tokens,
+            total_tokens: zeroTotals.total_tokens
+          })
+        );
+        unknownBucket.retractedUnknownKey = zeroKey;
+      }
     }
     if (unknownBucket) unknownBucket.alignedModel = nextAligned;
     const key = totalsKey(unknownBucket.totals);

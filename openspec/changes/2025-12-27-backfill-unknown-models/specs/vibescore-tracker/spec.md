@@ -13,6 +13,12 @@ The system SHALL set `model = "unknown"` only when no known model exists within 
 - **THEN** unknown totals SHALL be added to the dominant known model
 - **AND** no unknown bucket SHALL be queued for that half-hour
 
+#### Scenario: Unknown bucket is retracted when a known model appears later
+- **GIVEN** a half-hour bucket was previously queued as `model = "unknown"`
+- **AND** a later sync observes a known model in that same source + half-hour
+- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **THEN** the `model = "unknown"` bucket for that half-hour SHALL be updated to zero totals
+
 #### Scenario: Every Code aligns to nearest Codex model
 - **GIVEN** an every-code half-hour bucket remains unknown after same-source backfill
 - **AND** a codex half-hour bucket exists at the nearest time (past or future)
