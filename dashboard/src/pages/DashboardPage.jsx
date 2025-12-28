@@ -56,6 +56,8 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   const [linkCodeError, setLinkCodeError] = useState(null);
   const [installCopied, setInstallCopied] = useState(false);
   const [userIdCopied, setUserIdCopied] = useState(false);
+  const mockEnabled = isMockEnabled();
+  const accessEnabled = signedIn || mockEnabled;
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
     return () => window.clearTimeout(t);
@@ -105,8 +107,6 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
   );
   const from = range.from;
   const to = range.to;
-  const mockEnabled = isMockEnabled();
-  const accessEnabled = signedIn || mockEnabled;
   const timeZoneLabel = useMemo(
     () => formatTimeZoneLabel({ timeZone, offsetMinutes: tzOffsetMinutes }),
     [timeZone, tzOffsetMinutes]
