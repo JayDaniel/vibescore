@@ -83,7 +83,7 @@ identity_card.name_default,ui,IdentityCard,IdentityCard,name_default,"VOLT.SYS_3
 identity_card.unknown,ui,IdentityCard,IdentityCard,unknown_label,"UNKNOWN_GHOST",,active
 identity_card.operator_label,ui,IdentityCard,IdentityCard,operator_label,"Handle",,active
 identity_card.decrypt,ui,IdentityCard,IdentityCard,decrypt_label,"[ ! ] DECRYPT_IDENTITY",,active
-identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,"Rank",,active
+identity_card.rank_label,ui,IdentityCard,IdentityCard,rank_label,"strar",,active
 identity_card.streak_label,ui,IdentityCard,IdentityCard,streak_label,"Streak",,active
 identity_card.rank_placeholder,ui,IdentityCard,IdentityCard,rank_placeholder,"—",,active
 identity_card.streak_value,ui,IdentityCard,IdentityCard,streak_value,"{{days}}_DAYS",,active

@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { buildAuthUrl } from "../lib/auth-url.js";
 import { computeActiveStreakDays } from "../lib/activity-heatmap.js";
 import { copy } from "../lib/copy.js";
-import { getRangeForPeriod } from "../lib/date-range.js";
+import { formatDateLocal, getRangeForPeriod } from "../lib/date-range.js";
 import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
 import {
   DETAILS_PAGE_SIZE,
@@ -433,6 +433,13 @@ export function DashboardPage({
   const identityHandle = useMemo(() => {
     return identityLabel.replace(/[^a-zA-Z0-9._-]/g, "_");
   }, [identityLabel]);
+  const identityStartDate = useMemo(() => {
+    const raw = auth?.savedAt;
+    if (!raw) return null;
+    const ts = Date.parse(raw);
+    if (!Number.isFinite(ts)) return null;
+    return formatDateLocal(new Date(ts));
+  }, [auth?.savedAt]);
 
   const heatmapFrom = heatmap?.from || heatmapRange.from;
   const heatmapTo = heatmap?.to || heatmapRange.to;
@@ -716,7 +723,7 @@ export function DashboardPage({
                 subtitle={copy("dashboard.identity.subtitle")}
                 name={identityHandle}
                 isPublic
-                rankLabel={copy("identity_card.rank_placeholder")}
+                rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
                 streakDays={streakDays}
               />
 
