@@ -616,6 +616,7 @@ export function DashboardPage({
       })
     : installInitCmdBase;
   const installInitCmdCopy = installInitCmdBase;
+  const installSyncCmd = copy("dashboard.install.cmd.sync");
   const installCopyLabel = resolvedLinkCode
     ? copy("dashboard.install.copy")
     : copy("dashboard.install.copy_base");
