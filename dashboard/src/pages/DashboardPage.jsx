@@ -47,7 +47,13 @@ const PERIODS = ["day", "week", "month", "total"];
 const DETAILS_DATE_KEYS = new Set(["day", "hour", "month"]);
 const DETAILS_PAGED_PERIODS = new Set(["day", "total"]);
 
-export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
+export function DashboardPage({
+  baseUrl,
+  auth,
+  signedIn,
+  sessionExpired,
+  signOut,
+}) {
   const [booted, setBooted] = useState(false);
   const [costModalOpen, setCostModalOpen] = useState(false);
   const [linkCode, setLinkCode] = useState(null);
@@ -577,7 +583,7 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
     return <BootScreen onSkip={() => setBooted(true)} />;
   }
 
-  const requireAuthGate = !signedIn && !mockEnabled;
+  const requireAuthGate = !signedIn && !mockEnabled && !sessionExpired;
 
   return (
     <>
@@ -602,6 +608,26 @@ export function DashboardPage({ baseUrl, auth, signedIn, signOut }) {
           <span className="font-bold">{copy("dashboard.footer.right")}</span>
         }
       >
+        {sessionExpired ? (
+          <div className="mb-6">
+            <AsciiBox
+              title={copy("dashboard.session_expired.title")}
+              subtitle={copy("dashboard.session_expired.subtitle")}
+            >
+              <p className="text-[10px] opacity-50 mt-0">
+                {copy("dashboard.session_expired.body")}
+              </p>
+              <div className="flex flex-wrap gap-3 mt-4">
+                <MatrixButton as="a" primary href={signInUrl}>
+                  {copy("shared.button.sign_in")}
+                </MatrixButton>
+                <MatrixButton as="a" href={signUpUrl}>
+                  {copy("shared.button.sign_up")}
+                </MatrixButton>
+              </div>
+            </AsciiBox>
+          </div>
+        ) : null}
         {requireAuthGate ? (
           <div className="flex items-center justify-center">
             <AsciiBox

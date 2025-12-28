@@ -241,6 +241,10 @@ dashboard.auth_required.title,dashboard,DashboardPage,AsciiBox,title,"Auth_Requi
 dashboard.auth_required.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"LINK_UI_A",,active
 dashboard.auth_required.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / sign up to view your daily token usage (UTC).",,active
 
+dashboard.session_expired.title,dashboard,DashboardPage,AsciiBox,title,"Session_Expired",,active
+dashboard.session_expired.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"REAUTH_REQUIRED",,active
+dashboard.session_expired.body,dashboard,DashboardPage,AsciiBox,body,"Your session expired. Sign in again to refresh private usage data.",,active
+
 dashboard.auth_optional.title,dashboard,DashboardPage,AsciiBox,title,"Auth_Optional",,active
 dashboard.auth_optional.subtitle,dashboard,DashboardPage,AsciiBox,subtitle,"Connect",,active
 dashboard.auth_optional.body,dashboard,DashboardPage,AsciiBox,body,"Sign in / sign up to sync real usage.",,active

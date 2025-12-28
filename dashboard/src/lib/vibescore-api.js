@@ -1,4 +1,5 @@
 import { createInsforgeClient } from "./insforge-client.js";
+import { markSessionExpired } from "./auth-storage.js";
 import { formatDateLocal } from "./date-range.js";
 import {
   getMockUsageDaily,
@@ -376,6 +377,9 @@ function normalizeSdkError(error, errorPrefix) {
   const err = new Error(errorPrefix ? `${errorPrefix}: ${msg}` : msg);
   err.cause = error;
   const status = error?.statusCode ?? error?.status;
+  if (status === 401) {
+    markSessionExpired();
+  }
   if (typeof status === "number") {
     err.status = status;
     err.statusCode = status;

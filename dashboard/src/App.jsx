@@ -33,7 +33,7 @@ function getSafeRedirect(searchParams) {
 
 export default function App() {
   const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
-  const { auth, signedIn, signOut } = useAuth();
+  const { auth, signedIn, sessionExpired, signOut } = useAuth();
   const mockEnabled = isMockEnabled();
 
   const pageUrl = new URL(window.location.href);
@@ -60,8 +60,8 @@ export default function App() {
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;
-  const accessEnabled = signedIn || mockEnabled;
-  if (!accessEnabled) {
+  const accessEnabled = signedIn || mockEnabled || sessionExpired;
+  if (!signedIn && !mockEnabled && !sessionExpired) {
     content = <LandingPage signInUrl={signInUrl} />;
   } else {
     content = (
@@ -71,6 +71,7 @@ export default function App() {
           baseUrl={baseUrl}
           auth={auth}
           signedIn={signedIn}
+          sessionExpired={sessionExpired}
           signOut={signOut}
         />
       </Suspense>

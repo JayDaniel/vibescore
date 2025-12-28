@@ -2,12 +2,28 @@ import { useCallback, useEffect, useState } from "react";
 
 import {
   clearAuthStorage,
+  clearSessionExpired,
   loadAuthFromStorage,
+  loadSessionExpired,
   saveAuthToStorage,
+  subscribeAuthStorage,
 } from "../lib/auth-storage.js";
 
 export function useAuth() {
   const [auth, setAuth] = useState(() => loadAuthFromStorage());
+  const [sessionExpired, setSessionExpired] = useState(() =>
+    loadSessionExpired()
+  );
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuthStorage(
+      ({ auth: nextAuth, sessionExpired: nextExpired }) => {
+        setAuth(nextAuth);
+        setSessionExpired(nextExpired);
+      }
+    );
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     const path = window.location.pathname.replace(/\/+$/, "");
@@ -17,6 +33,7 @@ export function useAuth() {
     const accessToken = params.get("access_token") || "";
     if (!accessToken) return;
 
+    clearSessionExpired();
     const next = {
       accessToken,
       userId: params.get("user_id") || null,
@@ -27,18 +44,24 @@ export function useAuth() {
 
     saveAuthToStorage(next);
     setAuth(next);
+    setSessionExpired(false);
     window.history.replaceState({}, "", "/");
   }, []);
 
   const signOut = useCallback(() => {
     clearAuthStorage();
+    clearSessionExpired();
     setAuth(null);
+    setSessionExpired(false);
   }, []);
 
+  const signedIn = Boolean(auth?.accessToken) && !sessionExpired;
+  const effectiveAuth = signedIn ? auth : null;
+
   return {
-    auth,
-    signedIn: Boolean(auth?.accessToken),
+    auth: effectiveAuth,
+    signedIn,
+    sessionExpired,
     signOut,
   };
 }
-
