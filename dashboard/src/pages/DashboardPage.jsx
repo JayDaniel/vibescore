@@ -613,7 +613,7 @@ export function DashboardPage({
             <AsciiBox
               title={copy("dashboard.session_expired.title")}
               subtitle={copy("dashboard.session_expired.subtitle")}
-              className="border-yellow-400/70"
+              className="border-[#00FF41]/40"
             >
               <p className="text-[10px] opacity-50 mt-0">
                 {copy("dashboard.session_expired.body")}
