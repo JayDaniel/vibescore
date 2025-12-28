@@ -9,6 +9,7 @@ Show a non-blocking session-expired banner on Dashboard while keeping LandingPag
 - Commit 3: `style: highlight session expired banner`
 - Commit 4: `style: restore green session banner border`
 - Commit 5: `feat: add session-expired copy button`
+- Commit 6: `feat: clarify install copy label + hide user id`
 
 ## Rollback Semantics
 - Reverting this PR restores the prior full-page auth gate behavior and removes the session-expired banner; no schema or backend changes involved.

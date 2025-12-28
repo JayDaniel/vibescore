@@ -22,10 +22,8 @@ test("copy registry includes link code install keys", () => {
   const required = [
     "dashboard.install.cmd.init_link_code",
     "dashboard.install.copy",
+    "dashboard.install.copy_base",
     "dashboard.install.copied",
-    "dashboard.install.user_id.label",
-    "dashboard.install.user_id.copy",
-    "dashboard.install.user_id.copied",
     "dashboard.install.link_code.loading",
     "dashboard.install.link_code.failed",
   ];

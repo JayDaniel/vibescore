@@ -61,7 +61,6 @@ export function DashboardPage({
   const [linkCodeLoading, setLinkCodeLoading] = useState(false);
   const [linkCodeError, setLinkCodeError] = useState(null);
   const [installCopied, setInstallCopied] = useState(false);
-  const [userIdCopied, setUserIdCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
   const accessEnabled = signedIn || mockEnabled;
@@ -465,13 +464,12 @@ export function DashboardPage({
       })
     : installInitCmdBase;
   const installSyncCmd = copy("dashboard.install.cmd.sync");
-  const installCopyLabel = copy("dashboard.install.copy");
+  const installCopyLabel = resolvedLinkCode
+    ? copy("dashboard.install.copy")
+    : copy("dashboard.install.copy_base");
   const installCopiedLabel = copy("dashboard.install.copied");
   const sessionExpiredCopyLabel = copy("dashboard.session_expired.copy_label");
   const sessionExpiredCopiedLabel = copy("dashboard.session_expired.copied");
-  const userIdLabel = copy("dashboard.install.user_id.label");
-  const userIdCopyLabel = copy("dashboard.install.user_id.copy");
-  const userIdCopiedLabel = copy("dashboard.install.user_id.copied");
   const installSeenKey = "vibescore.dashboard.install.seen.v1";
   const [installSeen] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -520,8 +518,6 @@ export function DashboardPage({
     ],
     [installInitCmdDisplay, installSyncCmd]
   );
-  const userIdMasked = auth?.userId ? maskSecret(auth.userId) : null;
-
   const handleCopyInstall = useCallback(async () => {
     if (!installInitCmdCopy) return;
     const didCopy = await safeWriteClipboard(installInitCmdCopy);
@@ -529,14 +525,6 @@ export function DashboardPage({
     setInstallCopied(true);
     window.setTimeout(() => setInstallCopied(false), 2000);
   }, [installInitCmdCopy]);
-
-  const handleCopyUserId = useCallback(async () => {
-    if (!auth?.userId) return;
-    const didCopy = await safeWriteClipboard(auth.userId);
-    if (!didCopy) return;
-    setUserIdCopied(true);
-    window.setTimeout(() => setUserIdCopied(false), 2000);
-  }, [auth?.userId]);
 
   const handleCopySessionExpired = useCallback(async () => {
     if (!installInitCmdBase) return;
@@ -743,15 +731,6 @@ export function DashboardPage({
                       </span>
                     ) : null}
                   </div>
-                  {signedIn && userIdMasked ? (
-                    <div className="flex flex-wrap items-center gap-2 text-[9px] opacity-60">
-                      <span className="font-mono">{userIdLabel}</span>
-                      <span className="font-mono">{userIdMasked}</span>
-                      <MatrixButton onClick={handleCopyUserId}>
-                        {userIdCopied ? userIdCopiedLabel : userIdCopyLabel}
-                      </MatrixButton>
-                    </div>
-                  ) : null}
                 </div>
               </AsciiBox>
 

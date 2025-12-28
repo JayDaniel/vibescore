@@ -2,9 +2,11 @@
 
 ## Scope
 - Session expired banner (non-blocking) + LandingPage gating
+- Install command copy label fallback + hide User ID in dashboard
 
 ## Tests Run
 - `node --test test/dashboard-session-expired-banner.test.js`
+- `node --test test/dashboard-link-code-install.test.js`
 - `npm test`
 - `node scripts/validate-copy-registry.cjs`
 
@@ -22,6 +24,8 @@
 - `node --test test/dashboard-session-expired-banner.test.js`: pass (PR gate doc)
 - `node --test test/dashboard-session-expired-banner.test.js`: pass (guard session-expired on access token)
 - `node --test test/dashboard-session-expired-banner.test.js`: pass (session-expired copy button)
+- `node scripts/validate-copy-registry.cjs`: ok (warnings about existing unused keys)
+- `node --test test/dashboard-link-code-install.test.js`: pass (install copy label + hide user id)
 - `node scripts/validate-copy-registry.cjs`: ok (warnings about existing unused keys)
 
 ## Evidence
