@@ -16,7 +16,7 @@
 
 ## 4. Verification
 - [x] `node --test test/rollout-parser.test.js test/init-uninstall.test.js`
-- [ ] Local smoke: run `node bin/tracker.js init --no-auth --no-open`, end an Opencode session, confirm `queue.jsonl` grows, then `node bin/tracker.js sync --auto` uploads.
+- [x] Local smoke: run `node bin/tracker.js init --no-auth --no-open`, end an Opencode session, confirm `queue.jsonl` grows, then `node bin/tracker.js sync --auto` uploads (auto upload throttled; retry scheduled).
 - [x] `node scripts/acceptance/opencode-plugin-install.cjs`
 
 ## 5. PR Gate
