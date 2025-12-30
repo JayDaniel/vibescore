@@ -85,3 +85,10 @@
 #### Scenario: Legend removed
 - **WHEN** 截图模式启用
 - **THEN** 热力图不显示 less/more 图例行
+
+### Requirement: Replace header with screenshot title
+系统 SHALL 在截图模式下隐藏顶部栏，并显示截图标题 “Coding Agent Wrapped 2025”。
+
+#### Scenario: Header replaced
+- **WHEN** 截图模式启用
+- **THEN** 顶部栏不显示，页面顶部展示截图标题

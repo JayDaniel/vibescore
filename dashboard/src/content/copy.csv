@@ -284,6 +284,7 @@ dashboard.daily.empty,dashboard,DashboardPage,AsciiBox,empty_state,"No data yet.
 dashboard.identity.title,dashboard,DashboardPage,IdentityCard,title,"Identity_Core",,active
 dashboard.identity.subtitle,dashboard,DashboardPage,IdentityCard,subtitle,"Authorized",,active
 dashboard.identity.fallback,dashboard,DashboardPage,IdentityCard,handle_fallback,"ANONYMOUS",,active
+dashboard.screenshot.title,dashboard,DashboardPage,ScreenshotTitle,title,"Coding Agent Wrapped 2025",,active
 dashboard.poster.title,dashboard,AnnualPosterPage,Poster,title,"我的2025总结",,active
 
 live_sniffer.log.system,ui,LiveSniffer,LiveSniffer,log,"[SYSTEM] KERNEL_LINK_ESTABLISHED",,active

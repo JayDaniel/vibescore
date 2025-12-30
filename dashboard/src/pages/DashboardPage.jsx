@@ -784,6 +784,7 @@ export function DashboardPage({
   return (
     <>
       <MatrixShell
+        hideHeader={screenshotMode}
         headerStatus={
           <BackendStatus
             baseUrl={baseUrl}
@@ -857,7 +858,13 @@ export function DashboardPage({
             </AsciiBox>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <>
+            {screenshotMode ? (
+              <div className="mb-6 text-3xl md:text-4xl font-black text-white tracking-[-0.03em] glow-text">
+                {copy("dashboard.screenshot.title")}
+              </div>
+            ) : null}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             <div className="lg:col-span-4 flex flex-col gap-6 min-w-0">
               <IdentityCard
                 title={copy("dashboard.identity.title")}
@@ -1119,6 +1126,7 @@ export function DashboardPage({
               ) : null}
             </div>
           </div>
+          </>
         )}
       </MatrixShell>
       <CostAnalysisModal
