@@ -966,12 +966,12 @@ export function DashboardPage({
                 expandAriaLabel={
                   allowBreakdownToggle ? coreIndexExpandAria : undefined
                 }
-                onRefresh={refreshAll}
+                onRefresh={screenshotMode ? null : refreshAll}
                 loading={usageLoadingState}
                 error={usageError}
                 rangeLabel={screenshotMode ? null : rangeLabel}
                 rangeTimeZoneLabel={timeZoneRangeLabel}
-                statusLabel={usageSourceLabel}
+                statusLabel={screenshotMode ? null : usageSourceLabel}
                 summaryScrambleDurationMs={identityScrambleDurationMs}
                 summaryAnimate={false}
               />

@@ -64,3 +64,10 @@
 #### Scenario: Trend module removed
 - **WHEN** 截图模式启用
 - **THEN** 趋势模块不显示
+
+### Requirement: Hide refresh controls
+系统 SHALL 在截图模式下隐藏 Usage 区域的刷新与状态栏。
+
+#### Scenario: Refresh controls removed
+- **WHEN** 截图模式启用
+- **THEN** Usage 区域不显示刷新按钮与状态信息
