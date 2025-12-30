@@ -6,7 +6,7 @@ const { ensureDir, readJson, writeJson } = require('./fs');
 
 const DEFAULT_EVENT = 'SessionEnd';
 const DEFAULT_HOOK_NAME = 'vibescore-tracker';
-const DEFAULT_MATCHER = 'exit|clear|logout|prompt_input_exit|other';
+const DEFAULT_MATCHER = null;
 
 function resolveGeminiConfigDir({ home = os.homedir(), env = process.env } = {}) {
   const explicit = typeof env.GEMINI_HOME === 'string' ? env.GEMINI_HOME.trim() : '';
@@ -150,21 +150,23 @@ function ensureHooksEnabled(settings) {
   return { settings: { ...settings, tools: nextTools }, changed: true };
 }
 
-function hookMatches(hook, { hookCommand, hookName }) {
+function hookMatches(hook, { hookCommand, hookName, requireCommand = false }) {
   if (!hook || typeof hook !== 'object') return false;
   const name = normalizeName(hook.name);
   const targetName = normalizeName(hookName);
-  if (name && targetName && name === targetName) return true;
   const cmd = normalizeCommand(hook.command);
   const targetCmd = normalizeCommand(hookCommand);
-  return Boolean(cmd && targetCmd && cmd === targetCmd);
+  const commandMatches = Boolean(cmd && targetCmd && cmd === targetCmd);
+  if (requireCommand) return commandMatches;
+  const nameMatches = Boolean(name && targetName && name === targetName);
+  return Boolean(commandMatches || nameMatches);
 }
 
-function entryMatches(entry, { hookCommand, hookName }) {
+function entryMatches(entry, { hookCommand, hookName, requireCommand = false }) {
   if (!entry || typeof entry !== 'object') return false;
-  if (entry.command || entry.name) return hookMatches(entry, { hookCommand, hookName });
+  if (entry.command || entry.name) return hookMatches(entry, { hookCommand, hookName, requireCommand });
   if (!Array.isArray(entry.hooks)) return false;
-  return entry.hooks.some((hook) => hookMatches(hook, { hookCommand, hookName }));
+  return entry.hooks.some((hook) => hookMatches(hook, { hookCommand, hookName, requireCommand }));
 }
 
 function hasHook(entries, { hookCommand, hookName }) {
@@ -232,14 +234,14 @@ function stripHookFromEntry(entry, { hookCommand, hookName }) {
   if (!entry || typeof entry !== 'object') return { entry, removed: false };
 
   if (entry.command || entry.name) {
-    if (hookMatches(entry, { hookCommand, hookName })) return { entry: null, removed: true };
+    if (hookMatches(entry, { hookCommand, hookName, requireCommand: true })) return { entry: null, removed: true };
     return { entry, removed: false };
   }
 
   const hooks = Array.isArray(entry.hooks) ? entry.hooks : null;
   if (!hooks) return { entry, removed: false };
 
-  const nextHooks = hooks.filter((hook) => !hookMatches(hook, { hookCommand, hookName }));
+  const nextHooks = hooks.filter((hook) => !hookMatches(hook, { hookCommand, hookName, requireCommand: true }));
   if (nextHooks.length === hooks.length) return { entry, removed: false };
   if (nextHooks.length === 0) return { entry: null, removed: true };
 
