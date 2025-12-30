@@ -4,12 +4,6 @@ const fs = require('node:fs/promises');
 
 const { restoreCodexNotify, restoreEveryCodeNotify } = require('../lib/codex-config');
 const { removeClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
-const {
-  resolveGeminiConfigDir,
-  resolveGeminiSettingsPath,
-  buildGeminiHookCommand,
-  removeGeminiHook
-} = require('../lib/gemini-config');
 const { resolveOpencodeConfigDir, removeOpencodePlugin } = require('../lib/opencode-config');
 
 async function cmdUninstall(argv) {
@@ -21,8 +15,6 @@ async function cmdUninstall(argv) {
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
   const claudeSettingsPath = path.join(home, '.claude', 'settings.json');
-  const geminiConfigDir = resolveGeminiConfigDir({ home, env: process.env });
-  const geminiSettingsPath = resolveGeminiSettingsPath({ configDir: geminiConfigDir });
   const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
   const notifyPath = path.join(binDir, 'notify.cjs');
   const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
@@ -30,12 +22,10 @@ async function cmdUninstall(argv) {
   const codexNotifyCmd = ['/usr/bin/env', 'node', notifyPath];
   const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
   const claudeHookCommand = buildClaudeHookCommand(notifyPath);
-  const geminiHookCommand = buildGeminiHookCommand(notifyPath);
 
   const codexConfigExists = await isFile(codexConfigPath);
   const codeConfigExists = await isFile(codeConfigPath);
   const claudeConfigExists = await isFile(claudeSettingsPath);
-  const geminiConfigExists = await isDir(geminiConfigDir);
   const opencodeConfigExists = await isDir(opencodeConfigDir);
   const codexRestore = codexConfigExists
     ? await restoreCodexNotify({
@@ -53,9 +43,6 @@ async function cmdUninstall(argv) {
     : { restored: false, skippedReason: 'config-missing' };
   const claudeRemove = claudeConfigExists
     ? await removeClaudeHook({ settingsPath: claudeSettingsPath, hookCommand: claudeHookCommand })
-    : { removed: false, skippedReason: 'config-missing' };
-  const geminiRemove = geminiConfigExists
-    ? await removeGeminiHook({ settingsPath: geminiSettingsPath, hookCommand: geminiHookCommand })
     : { removed: false, skippedReason: 'config-missing' };
   const opencodeRemove = opencodeConfigExists
     ? await removeOpencodePlugin({ configDir: opencodeConfigDir })
@@ -95,13 +82,6 @@ async function cmdUninstall(argv) {
             ? '- Claude hooks: no change'
             : '- Claude hooks: skipped'
         : '- Claude hooks: skipped (settings.json not found)',
-      geminiConfigExists
-        ? geminiRemove?.removed
-          ? `- Gemini hooks removed: ${geminiSettingsPath}`
-          : geminiRemove?.skippedReason === 'hook-missing'
-            ? '- Gemini hooks: no change'
-            : '- Gemini hooks: skipped'
-        : `- Gemini hooks: skipped (${geminiConfigDir} not found)`,
       opencodeConfigExists
         ? opencodeRemove?.removed
           ? `- Opencode plugin removed: ${opencodeConfigDir}`
