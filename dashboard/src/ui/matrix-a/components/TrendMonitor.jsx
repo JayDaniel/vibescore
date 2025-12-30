@@ -409,10 +409,12 @@ export function TrendMonitor({
         {singlePoints.map((pt) => (
           <div
             key={pt.key}
-            className="absolute z-15 w-2.5 h-2.5 rounded-full bg-[#00FF41] shadow-[0_0_8px_rgba(0,255,65,0.85)]"
+            className="absolute z-15 w-2.5 h-2.5 rounded-full"
             style={{
               left: `calc(${(pt.x / width) * 100}% - 5px)`,
               top: `calc(${(pt.y / height) * 100}% - 5px)`,
+              backgroundColor: color,
+              boxShadow: `0 0 8px ${color}`,
             }}
           />
         ))}
