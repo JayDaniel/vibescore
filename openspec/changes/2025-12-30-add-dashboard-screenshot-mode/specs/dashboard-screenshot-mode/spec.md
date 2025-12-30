@@ -44,9 +44,23 @@
 - **WHEN** 截图模式启用
 - **THEN** Usage 区域不显示 `day` 选项与范围区间
 
+### Requirement: Force total period in screenshot mode
+系统 SHALL 在截图模式下统一使用 `total` 周期视角，并隐藏周期切换入口。
+
+#### Scenario: Total-only view
+- **WHEN** 截图模式启用
+- **THEN** Usage 与趋势相关区域以 `total` 视角计算与展示，周期切换入口不显示
+
 ### Requirement: Hide range captions in screenshot mode
 系统 SHALL 在截图模式下隐藏范围说明文字（包括活动热力图范围与页脚范围）。
 
 #### Scenario: Range captions removed
 - **WHEN** 截图模式启用
 - **THEN** 页面不显示范围说明文字
+
+### Requirement: Hide trend module
+系统 SHALL 在截图模式下隐藏趋势模块。
+
+#### Scenario: Trend module removed
+- **WHEN** 截图模式启用
+- **THEN** 趋势模块不显示

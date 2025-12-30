@@ -209,7 +209,8 @@ export function DashboardPage({
   const timeZone = useMemo(() => getBrowserTimeZone(), []);
   const tzOffsetMinutes = useMemo(() => getBrowserTimeZoneOffsetMinutes(), []);
   const mockNow = useMemo(() => getMockNow(), []);
-  const [period, setPeriod] = useState("week");
+  const [selectedPeriod, setSelectedPeriod] = useState("week");
+  const period = screenshotMode ? "total" : selectedPeriod;
   const range = useMemo(
     () =>
       getRangeForPeriod(period, {
@@ -583,7 +584,7 @@ export function DashboardPage({
     ? copy("dashboard.footer.active", { range: timeZoneRangeLabel })
     : copy("dashboard.footer.auth");
   const periodsForDisplay = useMemo(
-    () => (screenshotMode ? PERIODS.filter((p) => p !== "day") : PERIODS),
+    () => (screenshotMode ? [] : PERIODS),
     [screenshotMode]
   );
 
@@ -937,7 +938,7 @@ export function DashboardPage({
                 title={copy("usage.panel.title")}
                 period={period}
                 periods={periodsForDisplay}
-                onPeriodChange={setPeriod}
+                onPeriodChange={setSelectedPeriod}
                 metrics={metricsRows}
                 showSummary={period === "total"}
                 useSummaryLayout
@@ -981,15 +982,17 @@ export function DashboardPage({
                 footer={null}
               />
 
-              <TrendMonitor
-                rows={trendRowsForDisplay}
-                from={trendFromForDisplay}
-                to={trendToForDisplay}
-                period={period}
-                timeZoneLabel={trendTimeZoneLabel}
-                showTimeZoneLabel={false}
-                className="min-h-[240px]"
-              />
+              {!screenshotMode ? (
+                <TrendMonitor
+                  rows={trendRowsForDisplay}
+                  from={trendFromForDisplay}
+                  to={trendToForDisplay}
+                  period={period}
+                  timeZoneLabel={trendTimeZoneLabel}
+                  showTimeZoneLabel={false}
+                  className="min-h-[240px]"
+                />
+              ) : null}
 
               {!screenshotMode ? (
                 <AsciiBox
