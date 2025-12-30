@@ -78,3 +78,10 @@
 #### Scenario: Usage above heatmap
 - **WHEN** 截图模式启用
 - **THEN** Usage 模块位于活动热力图之前
+
+### Requirement: Hide heatmap legend
+系统 SHALL 在截图模式下隐藏热力图的 less/more 图例行。
+
+#### Scenario: Legend removed
+- **WHEN** 截图模式启用
+- **THEN** 热力图不显示 less/more 图例行
