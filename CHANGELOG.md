@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
+
+## [0.2.2] - 2025-12-30
+### Added
+- Opencode CLI usage ingestion via global plugin and local message parsing.
+
+### Changed
+- Init installs the Opencode plugin even when the config directory does not yet exist.
+- Dashboard install copy now surfaces the link-code init command and removes the Opencode hint.
 ## [0.2.1] - 2025-12-29
 ### Changed
 - Dashboard install panel restores the copy button and link code fetch flow.
