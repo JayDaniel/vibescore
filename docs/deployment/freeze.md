@@ -47,3 +47,10 @@
 - Change ID: `2025-12-30-add-gemini-cli-hooks`
 - Freeze artifact: CLI package `@vibescore/tracker` (publish from this commit)
 - Cold regression step: `node scripts/acceptance/gemini-hook-install.cjs`
+
+## 2025-12-30-cli-init-ux-sync-guard
+- Scope: CLI init UX messaging + deferred browser open + auto sync guard (no token)
+- Change ID: `2025-12-30-cli-init-ux-sync-guard` (no OpenSpec change)
+- Freeze artifact: CLI package `@vibescore/tracker` (publish from this commit)
+- Cold regression step: `node --test test/init-uninstall.test.js test/init-spawn-error.test.js`
+- Synthetic acceptance: `node scripts/acceptance/notify-local-runtime-deps.cjs`
