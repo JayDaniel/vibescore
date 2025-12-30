@@ -541,6 +541,31 @@ export function DashboardPage({
 
   const heatmapFrom = heatmap?.from || heatmapRange.from;
   const heatmapTo = heatmap?.to || heatmapRange.to;
+  const activityHeatmapBlock = (
+    <AsciiBox
+      title={copy("dashboard.activity.title")}
+      subtitle={accessEnabled ? copy("dashboard.activity.subtitle") : "—"}
+      className="min-w-0 overflow-hidden"
+    >
+      <ActivityHeatmap
+        heatmap={heatmap}
+        timeZoneLabel={timeZoneLabel}
+        timeZoneShortLabel={timeZoneShortLabel}
+      />
+      {!screenshotMode ? (
+        <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
+          {copy("dashboard.activity.range", {
+            from: heatmapFrom,
+            to: heatmapTo,
+          })}{" "}
+          {timeZoneRangeLabel}
+        </div>
+      ) : null}
+      <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
+        {heatmapSourceLabel}
+      </div>
+    </AsciiBox>
+  );
 
   const rangeLabel = useMemo(() => {
     return `${from}..${to}`;
@@ -906,31 +931,7 @@ export function DashboardPage({
                 </AsciiBox>
               ) : null}
 
-              <AsciiBox
-                title={copy("dashboard.activity.title")}
-                subtitle={
-                  accessEnabled ? copy("dashboard.activity.subtitle") : "—"
-                }
-                className="min-w-0 overflow-hidden"
-              >
-                <ActivityHeatmap
-                  heatmap={heatmap}
-                  timeZoneLabel={timeZoneLabel}
-                  timeZoneShortLabel={timeZoneShortLabel}
-                />
-                {!screenshotMode ? (
-                  <div className="mt-3 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                    {copy("dashboard.activity.range", {
-                      from: heatmapFrom,
-                      to: heatmapTo,
-                    })}{" "}
-                    {timeZoneRangeLabel}
-                  </div>
-                ) : null}
-                <div className="mt-1 text-[8px] opacity-30 uppercase tracking-widest font-black">
-                  {heatmapSourceLabel}
-                </div>
-              </AsciiBox>
+              {!screenshotMode ? activityHeatmapBlock : null}
             </div>
 
             <div className="lg:col-span-8 flex flex-col gap-6 min-w-0">
@@ -975,6 +976,8 @@ export function DashboardPage({
                 summaryScrambleDurationMs={identityScrambleDurationMs}
                 summaryAnimate={false}
               />
+
+              {screenshotMode ? activityHeatmapBlock : null}
 
               <NeuralDivergenceMap
                 fleetData={fleetData}

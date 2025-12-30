@@ -71,3 +71,10 @@
 #### Scenario: Refresh controls removed
 - **WHEN** 截图模式启用
 - **THEN** Usage 区域不显示刷新按钮与状态信息
+
+### Requirement: Swap usage and heatmap order
+系统 SHALL 在截图模式下将 Usage 区域置于活动热力图之上。
+
+#### Scenario: Usage above heatmap
+- **WHEN** 截图模式启用
+- **THEN** Usage 模块位于活动热力图之前
