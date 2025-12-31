@@ -31,7 +31,7 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod2(request, method) {
+    function requireMethod(request, method) {
       if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
@@ -50,7 +50,7 @@ var require_http = __commonJS({
       corsHeaders,
       handleOptions: handleOptions2,
       json: json2,
-      requireMethod: requireMethod2,
+      requireMethod,
       readJson
     };
   }
@@ -708,7 +708,8 @@ var require_logging = __commonJS({
     }
     module2.exports = {
       withRequestLogging: withRequestLogging2,
-      logSlowQuery: logSlowQuery2
+      logSlowQuery: logSlowQuery2,
+      getSlowQueryThresholdMs
     };
     function logSlowQuery2(logger, fields) {
       if (!logger || typeof logger.log !== "function") return;
@@ -755,8 +756,50 @@ var require_logging = __commonJS({
   }
 });
 
+// insforge-src/shared/debug.js
+var require_debug = __commonJS({
+  "insforge-src/shared/debug.js"(exports2, module2) {
+    "use strict";
+    var { getSlowQueryThresholdMs } = require_logging();
+    var DEBUG_HEADER_NAMES = [
+      "x-vibescore-request-id",
+      "x-vibescore-query-ms",
+      "x-vibescore-slow-threshold-ms",
+      "x-vibescore-slow-query"
+    ];
+    function isDebugEnabled2(url) {
+      if (!url) return false;
+      if (typeof url === "string") {
+        try {
+          const parsed = new URL(url);
+          return parsed.searchParams.get("debug") === "1";
+        } catch (_e) {
+          return false;
+        }
+      }
+      return url?.searchParams?.get("debug") === "1";
+    }
+    function buildSlowQueryDebugHeaders2({ logger, durationMs } = {}) {
+      const safeDuration = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0;
+      const thresholdMs = getSlowQueryThresholdMs();
+      return {
+        "Access-Control-Expose-Headers": DEBUG_HEADER_NAMES.join(", "),
+        "x-vibescore-request-id": logger?.requestId || "",
+        "x-vibescore-query-ms": String(safeDuration),
+        "x-vibescore-slow-threshold-ms": String(thresholdMs),
+        "x-vibescore-slow-query": safeDuration >= thresholdMs ? "1" : "0"
+      };
+    }
+    module2.exports = {
+      DEBUG_HEADER_NAMES,
+      isDebugEnabled: isDebugEnabled2,
+      buildSlowQueryDebugHeaders: buildSlowQueryDebugHeaders2
+    };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-hourly.js
-var { handleOptions, json, requireMethod } = require_http();
+var { handleOptions, json } = require_http();
 var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam } = require_source();
@@ -777,30 +820,36 @@ var {
 var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
 var { logSlowQuery, withRequestLogging } = require_logging();
+var { isDebugEnabled, buildSlowQueryDebugHeaders } = require_debug();
 var MIN_INTERVAL_MINUTES = 30;
 module.exports = withRequestLogging("vibescore-usage-hourly", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
-  const methodErr = requireMethod(request, "GET");
-  if (methodErr) return methodErr;
+  const url = new URL(request.url);
+  const debugEnabled = isDebugEnabled(url);
+  const respond = (body, status, durationMs) => json(
+    body,
+    status,
+    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+  );
+  if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));
-  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  if (!bearer) return respond({ error: "Missing bearer token" }, 401, 0);
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const url = new URL(request.url);
+  if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
+  if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
   const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
+  if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
   if (isUtcTimeZone(tzContext)) {
     const dayRaw2 = url.searchParams.get("day");
     const today = parseUtcDateString(formatDateUTC(/* @__PURE__ */ new Date()));
     const day = dayRaw2 ? parseUtcDateString(dayRaw2) : today;
-    if (!day) return json({ error: "Invalid day" }, 400);
+    if (!day) return respond({ error: "Invalid day" }, 400, 0);
     const startUtc2 = new Date(
       Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)
     );
@@ -851,13 +900,14 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
         bucket.output += toBigInt(row?.sum_output_tokens);
         bucket.reasoning += toBigInt(row?.sum_reasoning_output_tokens);
       }
-      return json(
+      return respond(
         {
           day: dayLabel,
           data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterSlot),
           sync: buildSyncResponse(syncMeta2)
         },
-        200
+        200,
+        aggregateDurationMs
       );
     }
     const queryStartMs2 = Date.now();
@@ -902,22 +952,23 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
       tz: tzContext?.timeZone || null,
       tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
     });
-    if (error2) return json({ error: error2.message }, 500);
-    return json(
+    if (error2) return respond({ error: error2.message }, 500, queryDurationMs2);
+    return respond(
       {
         day: dayLabel,
         data: buildHourlyResponse(hourKeys2, bucketMap2, syncMeta2?.missingAfterSlot),
         sync: buildSyncResponse(syncMeta2)
       },
-      200
+      200,
+      queryDurationMs2
     );
   }
   const dayRaw = url.searchParams.get("day");
   const todayKey = formatDateParts(getLocalParts(/* @__PURE__ */ new Date(), tzContext));
-  if (dayRaw && !parseDateParts(dayRaw)) return json({ error: "Invalid day" }, 400);
+  if (dayRaw && !parseDateParts(dayRaw)) return respond({ error: "Invalid day" }, 400, 0);
   const dayKey = dayRaw || todayKey;
   const dayParts = parseDateParts(dayKey);
-  if (!dayParts) return json({ error: "Invalid day" }, 400);
+  if (!dayParts) return respond({ error: "Invalid day" }, 400, 0);
   const startUtc = localDatePartsToUtc({ ...dayParts, hour: 0, minute: 0, second: 0 }, tzContext);
   const endUtc = localDatePartsToUtc(addDatePartsDays(dayParts, 1), tzContext);
   const startIso = startUtc.toISOString();
@@ -976,14 +1027,15 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
     tz: tzContext?.timeZone || null,
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
-  if (error) return json({ error: error.message }, 500);
-  return json(
+  if (error) return respond({ error: error.message }, 500, queryDurationMs);
+  return respond(
     {
       day: dayKey,
       data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
       sync: buildSyncResponse(syncMeta)
     },
-    200
+    200,
+    queryDurationMs
   );
 });
 function initHourlyBuckets(dayLabel) {

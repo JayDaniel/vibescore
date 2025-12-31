@@ -31,7 +31,7 @@ var require_http = __commonJS({
         }
       });
     }
-    function requireMethod2(request, method) {
+    function requireMethod(request, method) {
       if (request.method !== method) return json2({ error: "Method not allowed" }, 405);
       return null;
     }
@@ -50,7 +50,7 @@ var require_http = __commonJS({
       corsHeaders,
       handleOptions: handleOptions2,
       json: json2,
-      requireMethod: requireMethod2,
+      requireMethod,
       readJson
     };
   }
@@ -908,7 +908,8 @@ var require_logging = __commonJS({
     }
     module2.exports = {
       withRequestLogging: withRequestLogging2,
-      logSlowQuery: logSlowQuery2
+      logSlowQuery: logSlowQuery2,
+      getSlowQueryThresholdMs
     };
     function logSlowQuery2(logger, fields) {
       if (!logger || typeof logger.log !== "function") return;
@@ -955,8 +956,50 @@ var require_logging = __commonJS({
   }
 });
 
+// insforge-src/shared/debug.js
+var require_debug = __commonJS({
+  "insforge-src/shared/debug.js"(exports2, module2) {
+    "use strict";
+    var { getSlowQueryThresholdMs } = require_logging();
+    var DEBUG_HEADER_NAMES = [
+      "x-vibescore-request-id",
+      "x-vibescore-query-ms",
+      "x-vibescore-slow-threshold-ms",
+      "x-vibescore-slow-query"
+    ];
+    function isDebugEnabled2(url) {
+      if (!url) return false;
+      if (typeof url === "string") {
+        try {
+          const parsed = new URL(url);
+          return parsed.searchParams.get("debug") === "1";
+        } catch (_e) {
+          return false;
+        }
+      }
+      return url?.searchParams?.get("debug") === "1";
+    }
+    function buildSlowQueryDebugHeaders2({ logger, durationMs } = {}) {
+      const safeDuration = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0;
+      const thresholdMs = getSlowQueryThresholdMs();
+      return {
+        "Access-Control-Expose-Headers": DEBUG_HEADER_NAMES.join(", "),
+        "x-vibescore-request-id": logger?.requestId || "",
+        "x-vibescore-query-ms": String(safeDuration),
+        "x-vibescore-slow-threshold-ms": String(thresholdMs),
+        "x-vibescore-slow-query": safeDuration >= thresholdMs ? "1" : "0"
+      };
+    }
+    module2.exports = {
+      DEBUG_HEADER_NAMES,
+      isDebugEnabled: isDebugEnabled2,
+      buildSlowQueryDebugHeaders: buildSlowQueryDebugHeaders2
+    };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-summary.js
-var { handleOptions, json, requireMethod } = require_http();
+var { handleOptions, json } = require_http();
 var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam, normalizeSource } = require_source();
@@ -980,24 +1023,30 @@ var {
   resolvePricingProfile
 } = require_pricing();
 var { logSlowQuery, withRequestLogging } = require_logging();
+var { isDebugEnabled, buildSlowQueryDebugHeaders } = require_debug();
 var DEFAULT_SOURCE = "codex";
 module.exports = withRequestLogging("vibescore-usage-summary", async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
-  const methodErr = requireMethod(request, "GET");
-  if (methodErr) return methodErr;
+  const url = new URL(request.url);
+  const debugEnabled = isDebugEnabled(url);
+  const respond = (body, status, durationMs) => json(
+    body,
+    status,
+    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+  );
+  if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));
-  if (!bearer) return json({ error: "Missing bearer token" }, 401);
+  if (!bearer) return respond({ error: "Missing bearer token" }, 401, 0);
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: "Unauthorized" }, 401);
-  const url = new URL(request.url);
+  if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
+  if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
   const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
+  if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
   const { from, to } = normalizeDateRangeLocal(
     url.searchParams.get("from"),
@@ -1007,11 +1056,11 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
   const dayKeys = listDateStrings(from, to);
   const maxDays = getUsageMaxDays();
   if (dayKeys.length > maxDays) {
-    return json({ error: `Date range too large (max ${maxDays} days)` }, 400);
+    return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
-  if (!startParts || !endParts) return json({ error: "Invalid date range" }, 400);
+  if (!startParts || !endParts) return respond({ error: "Invalid date range" }, 400, 0);
   const startUtc = localDatePartsToUtc(startParts, tzContext);
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
   const startIso = startUtc.toISOString();
@@ -1065,7 +1114,7 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
     tz: tzContext?.timeZone || null,
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
-  if (error) return json({ error: error.message }, 500);
+  if (error) return respond({ error: error.message }, 500, queryDurationMs);
   const impliedModel = model || (distinctModels.size === 1 ? Array.from(distinctModels)[0] : null);
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
@@ -1103,7 +1152,7 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
     reasoning_output_tokens: reasoningOutputTokens.toString(),
     total_cost_usd: formatUsdFromMicros(totalCostMicros)
   };
-  return json(
+  return respond(
     {
       from,
       to,
@@ -1114,7 +1163,8 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
         pricingMode: summaryPricingMode
       })
     },
-    200
+    200,
+    queryDurationMs
   );
 });
 function createTotals() {

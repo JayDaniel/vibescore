@@ -1317,6 +1317,99 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
   assert.equal(body.pricing.rates_per_million_usd.cached_input, '0.175000');
 });
 
+test('vibescore-usage-summary emits debug headers when requested', async () => {
+  const fn = require('../insforge-functions/vibescore-usage-summary');
+  const prevThreshold = process.env.VIBESCORE_SLOW_QUERY_MS;
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+
+  const rows = [
+    {
+      hour_start: '2025-12-21T01:00:00.000Z',
+      total_tokens: '10',
+      input_tokens: '6',
+      cached_input_tokens: '2',
+      output_tokens: '4',
+      reasoning_output_tokens: '1'
+    }
+  ];
+
+  try {
+    process.env.VIBESCORE_SLOW_QUERY_MS = '2000';
+
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table !== 'vibescore_tracker_hourly') {
+                throw new Error(`Unexpected table: ${table}`);
+              }
+              return {
+                select: () => ({
+                  eq: () => ({
+                    gte: () => ({
+                      lt: () => ({
+                        order: async () => ({ data: rows, error: null })
+                      })
+                    })
+                  })
+                })
+              };
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21&debug=1',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+
+    const expose = res.headers.get('Access-Control-Expose-Headers') || '';
+    assert.ok(expose.includes('x-vibescore-request-id'));
+    assert.ok(expose.includes('x-vibescore-query-ms'));
+    assert.ok(expose.includes('x-vibescore-slow-threshold-ms'));
+    assert.ok(expose.includes('x-vibescore-slow-query'));
+
+    const requestId = res.headers.get('x-vibescore-request-id');
+    assert.ok(requestId && requestId.length > 0);
+    const queryMs = Number(res.headers.get('x-vibescore-query-ms'));
+    assert.ok(Number.isFinite(queryMs));
+    const thresholdMs = Number(res.headers.get('x-vibescore-slow-threshold-ms'));
+    assert.ok(Number.isFinite(thresholdMs));
+    const slowFlag = res.headers.get('x-vibescore-slow-query');
+    assert.ok(slowFlag === '0' || slowFlag === '1');
+
+    const noDebugReq = new Request(
+      'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+    const noDebugRes = await fn(noDebugReq);
+    assert.equal(noDebugRes.status, 200);
+    assert.equal(noDebugRes.headers.get('x-vibescore-request-id'), null);
+    assert.equal(noDebugRes.headers.get('x-vibescore-query-ms'), null);
+  } finally {
+    if (prevThreshold === undefined) delete process.env.VIBESCORE_SLOW_QUERY_MS;
+    else process.env.VIBESCORE_SLOW_QUERY_MS = prevThreshold;
+  }
+});
+
 test('vibescore-usage-summary uses auth lookup even with jwt payload', async () => {
   const fn = require('../insforge-functions/vibescore-usage-summary');
 

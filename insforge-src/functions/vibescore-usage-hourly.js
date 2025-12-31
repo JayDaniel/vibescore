@@ -3,7 +3,7 @@
 
 'use strict';
 
-const { handleOptions, json, requireMethod } = require('../shared/http');
+const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
@@ -24,6 +24,7 @@ const {
 const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
+const { isDebugEnabled, buildSlowQueryDebugHeaders } = require('../shared/debug');
 
 const MIN_INTERVAL_MINUTES = 30;
 
@@ -31,30 +32,36 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
   const opt = handleOptions(request);
   if (opt) return opt;
 
-  const methodErr = requireMethod(request, 'GET');
-  if (methodErr) return methodErr;
+  const url = new URL(request.url);
+  const debugEnabled = isDebugEnabled(url);
+  const respond = (body, status, durationMs) => json(
+    body,
+    status,
+    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+  );
+
+  if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
 
   const bearer = getBearerToken(request.headers.get('Authorization'));
-  if (!bearer) return json({ error: 'Missing bearer token' }, 401);
+  if (!bearer) return respond({ error: 'Missing bearer token' }, 401, 0);
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
-  const url = new URL(request.url);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
+  if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
   const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
+  if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
 
   if (isUtcTimeZone(tzContext)) {
     const dayRaw = url.searchParams.get('day');
     const today = parseUtcDateString(formatDateUTC(new Date()));
     const day = dayRaw ? parseUtcDateString(dayRaw) : today;
-    if (!day) return json({ error: 'Invalid day' }, 400);
+    if (!day) return respond({ error: 'Invalid day' }, 400, 0);
 
     const startUtc = new Date(
       Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate(), 0, 0, 0)
@@ -111,13 +118,14 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
         bucket.reasoning += toBigInt(row?.sum_reasoning_output_tokens);
       }
 
-      return json(
+      return respond(
         {
           day: dayLabel,
           data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
           sync: buildSyncResponse(syncMeta)
         },
-        200
+        200,
+        aggregateDurationMs
       );
     }
 
@@ -168,24 +176,25 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
       tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
     });
 
-    if (error) return json({ error: error.message }, 500);
+    if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
-    return json(
+    return respond(
       {
         day: dayLabel,
         data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
         sync: buildSyncResponse(syncMeta)
       },
-      200
+      200,
+      queryDurationMs
     );
   }
 
   const dayRaw = url.searchParams.get('day');
   const todayKey = formatDateParts(getLocalParts(new Date(), tzContext));
-  if (dayRaw && !parseDateParts(dayRaw)) return json({ error: 'Invalid day' }, 400);
+  if (dayRaw && !parseDateParts(dayRaw)) return respond({ error: 'Invalid day' }, 400, 0);
   const dayKey = dayRaw || todayKey;
   const dayParts = parseDateParts(dayKey);
-  if (!dayParts) return json({ error: 'Invalid day' }, 400);
+  if (!dayParts) return respond({ error: 'Invalid day' }, 400, 0);
 
   const startUtc = localDatePartsToUtc({ ...dayParts, hour: 0, minute: 0, second: 0 }, tzContext);
   const endUtc = localDatePartsToUtc(addDatePartsDays(dayParts, 1), tzContext);
@@ -252,15 +261,16 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
-  return json(
+  return respond(
     {
       day: dayKey,
       data: buildHourlyResponse(hourKeys, bucketMap, syncMeta?.missingAfterSlot),
       sync: buildSyncResponse(syncMeta)
     },
-    200
+    200,
+    queryDurationMs
   );
 });
 

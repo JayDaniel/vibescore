@@ -244,7 +244,8 @@ var require_logging = __commonJS({
     }
     module2.exports = {
       withRequestLogging: withRequestLogging2,
-      logSlowQuery
+      logSlowQuery,
+      getSlowQueryThresholdMs
     };
     function logSlowQuery(logger, fields) {
       if (!logger || typeof logger.log !== "function") return;

@@ -3,7 +3,7 @@
 
 'use strict';
 
-const { handleOptions, json, requireMethod } = require('../shared/http');
+const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
@@ -22,28 +22,35 @@ const {
 const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
+const { isDebugEnabled, buildSlowQueryDebugHeaders } = require('../shared/debug');
 
 module.exports = withRequestLogging('vibescore-usage-daily', async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
 
-  const methodErr = requireMethod(request, 'GET');
-  if (methodErr) return methodErr;
+  const url = new URL(request.url);
+  const debugEnabled = isDebugEnabled(url);
+  const respond = (body, status, durationMs) => json(
+    body,
+    status,
+    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+  );
+
+  if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
 
   const bearer = getBearerToken(request.headers.get('Authorization'));
-  if (!bearer) return json({ error: 'Missing bearer token' }, 401);
+  if (!bearer) return respond({ error: 'Missing bearer token' }, 401, 0);
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
-  const url = new URL(request.url);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
+  if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
   const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
+  if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
   const { from, to } = normalizeDateRangeLocal(
     url.searchParams.get('from'),
@@ -54,12 +61,12 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
   const dayKeys = listDateStrings(from, to);
   const maxDays = getUsageMaxDays();
   if (dayKeys.length > maxDays) {
-    return json({ error: `Date range too large (max ${maxDays} days)` }, 400);
+    return respond({ error: `Date range too large (max ${maxDays} days)` }, 400, 0);
   }
 
   const startParts = parseDateParts(from);
   const endParts = parseDateParts(to);
-  if (!startParts || !endParts) return json({ error: 'Invalid date range' }, 400);
+  if (!startParts || !endParts) return respond({ error: 'Invalid date range' }, 400, 0);
 
   const startUtc = localDatePartsToUtc(startParts, tzContext);
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
@@ -123,7 +130,7 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
   const rows = dayKeys.map((day) => {
     const bucket = buckets.get(day);
@@ -137,5 +144,5 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
     };
   });
 
-  return json({ from, to, data: rows }, 200);
+  return respond({ from, to, data: rows }, 200, queryDurationMs);
 });

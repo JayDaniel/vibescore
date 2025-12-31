@@ -3,7 +3,7 @@
 
 'use strict';
 
-const { handleOptions, json, requireMethod } = require('../shared/http');
+const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
@@ -27,39 +27,46 @@ const {
 const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
+const { isDebugEnabled, buildSlowQueryDebugHeaders } = require('../shared/debug');
 
 module.exports = withRequestLogging('vibescore-usage-heatmap', async function(request, logger) {
   const opt = handleOptions(request);
   if (opt) return opt;
 
-  const methodErr = requireMethod(request, 'GET');
-  if (methodErr) return methodErr;
+  const url = new URL(request.url);
+  const debugEnabled = isDebugEnabled(url);
+  const respond = (body, status, durationMs) => json(
+    body,
+    status,
+    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+  );
+
+  if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);
 
   const bearer = getBearerToken(request.headers.get('Authorization'));
-  if (!bearer) return json({ error: 'Missing bearer token' }, 401);
+  if (!bearer) return respond({ error: 'Missing bearer token' }, 401, 0);
 
-  const url = new URL(request.url);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
-  if (!sourceResult.ok) return json({ error: sourceResult.error }, 400);
+  if (!sourceResult.ok) return respond({ error: sourceResult.error }, 400, 0);
   const source = sourceResult.source;
   const modelResult = getModelParam(url);
-  if (!modelResult.ok) return json({ error: modelResult.error }, 400);
+  if (!modelResult.ok) return respond({ error: modelResult.error }, 400, 0);
   const model = modelResult.model;
 
   const weeksRaw = url.searchParams.get('weeks');
   const weeks = normalizeWeeks(weeksRaw);
-  if (!weeks) return json({ error: 'Invalid weeks' }, 400);
+  if (!weeks) return respond({ error: 'Invalid weeks' }, 400, 0);
 
   const weekStartsOnRaw = url.searchParams.get('week_starts_on');
   const weekStartsOn = normalizeWeekStartsOn(weekStartsOnRaw);
-  if (!weekStartsOn) return json({ error: 'Invalid week_starts_on' }, 400);
+  if (!weekStartsOn) return respond({ error: 'Invalid week_starts_on' }, 400, 0);
 
   const toRaw = url.searchParams.get('to');
 
   if (isUtcTimeZone(tzContext)) {
     const to = normalizeToDate(toRaw);
-    if (!to) return json({ error: 'Invalid to' }, 400);
+    if (!to) return respond({ error: 'Invalid to' }, 400, 0);
 
     const { from, gridStart, end } = computeHeatmapWindowUtc({
       weeks,
@@ -69,7 +76,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
 
     const baseUrl = getBaseUrl();
     const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-    if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+    if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
     const startIso = gridStart.toISOString();
     const endUtc = addUtcDays(end, 1);
@@ -116,7 +123,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
       tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
     });
 
-    if (error) return json({ error: error.message }, 500);
+    if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
     const nz = [];
     let activeDays = 0;
@@ -164,7 +171,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
       to: end
     });
 
-    return json(
+    return respond(
       {
         from,
         to,
@@ -174,7 +181,8 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
         streak_days: streakDays,
         weeks: weeksOut
       },
-      200
+      200,
+      queryDurationMs
     );
   }
 
@@ -184,10 +192,10 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
     month: todayParts.month,
     day: todayParts.day
   };
-  if (!toParts) return json({ error: 'Invalid to' }, 400);
+  if (!toParts) return respond({ error: 'Invalid to' }, 400, 0);
 
   const end = dateFromPartsUTC(toParts);
-  if (!end) return json({ error: 'Invalid to' }, 400);
+  if (!end) return respond({ error: 'Invalid to' }, 400, 0);
 
   const desired = weekStartsOn === 'mon' ? 1 : 0;
   const endDow = end.getUTCDay();
@@ -197,7 +205,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
   const to = formatDateParts(toParts);
 
   const startParts = parseDateParts(from);
-  if (!startParts) return json({ error: 'Invalid to' }, 400);
+  if (!startParts) return respond({ error: 'Invalid to' }, 400, 0);
 
   const startUtc = localDatePartsToUtc(startParts, tzContext);
   const endUtc = localDatePartsToUtc(addDatePartsDays(toParts, 1), tzContext);
@@ -206,7 +214,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
 
   const baseUrl = getBaseUrl();
   const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-  if (!auth.ok) return json({ error: 'Unauthorized' }, 401);
+  if (!auth.ok) return respond({ error: 'Unauthorized' }, 401, 0);
 
   const valuesByDay = new Map();
   const queryStartMs = Date.now();
@@ -249,7 +257,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
     tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
   });
 
-  if (error) return json({ error: error.message }, 500);
+  if (error) return respond({ error: error.message }, 500, queryDurationMs);
 
   const nz = [];
   let activeDays = 0;
@@ -297,7 +305,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
     to: end
   });
 
-  return json(
+  return respond(
     {
       from,
       to,
@@ -307,7 +315,8 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
       streak_days: streakDays,
       weeks: weeksOut
     },
-    200
+    200,
+    queryDurationMs
   );
 });
 

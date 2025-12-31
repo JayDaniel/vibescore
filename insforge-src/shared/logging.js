@@ -79,7 +79,8 @@ function withRequestLogging(functionName, handler) {
 
 module.exports = {
   withRequestLogging,
-  logSlowQuery
+  logSlowQuery,
+  getSlowQueryThresholdMs
 };
 
 function logSlowQuery(logger, fields) {
