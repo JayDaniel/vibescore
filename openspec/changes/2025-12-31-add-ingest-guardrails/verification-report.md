@@ -14,5 +14,8 @@
 ## Evidence
 - CLI output captured in console during run
 
+## 2025-12-31 Re-run (opt-in default)
+- `node --test test/edge-functions.test.js`: pass (38/38)
+
 ## Remaining Risks
 - Canary 调度未接入实际监控系统
