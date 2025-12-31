@@ -761,12 +761,6 @@ var require_debug = __commonJS({
   "insforge-src/shared/debug.js"(exports2, module2) {
     "use strict";
     var { getSlowQueryThresholdMs } = require_logging();
-    var DEBUG_HEADER_NAMES = [
-      "x-vibescore-request-id",
-      "x-vibescore-query-ms",
-      "x-vibescore-slow-threshold-ms",
-      "x-vibescore-slow-query"
-    ];
     function isDebugEnabled2(url) {
       if (!url) return false;
       if (typeof url === "string") {
@@ -779,21 +773,38 @@ var require_debug = __commonJS({
       }
       return url?.searchParams?.get("debug") === "1";
     }
-    function buildSlowQueryDebugHeaders2({ logger, durationMs } = {}) {
+    function buildSlowQueryDebugPayload({ logger, durationMs, status } = {}) {
       const safeDuration = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0;
       const thresholdMs = getSlowQueryThresholdMs();
+      if (logger?.log) {
+        logger.log({
+          stage: "debug_payload",
+          status: typeof status === "number" ? status : null,
+          query_ms: safeDuration,
+          slow_threshold_ms: thresholdMs,
+          slow_query: safeDuration >= thresholdMs ? 1 : 0
+        });
+      }
       return {
-        "Access-Control-Expose-Headers": DEBUG_HEADER_NAMES.join(", "),
-        "x-vibescore-request-id": logger?.requestId || "",
-        "x-vibescore-query-ms": String(safeDuration),
-        "x-vibescore-slow-threshold-ms": String(thresholdMs),
-        "x-vibescore-slow-query": safeDuration >= thresholdMs ? "1" : "0"
+        request_id: logger?.requestId || "",
+        status: typeof status === "number" ? status : null,
+        query_ms: safeDuration,
+        slow_threshold_ms: thresholdMs,
+        slow_query: safeDuration >= thresholdMs
+      };
+    }
+    function withSlowQueryDebugPayload2(body, options) {
+      if (!body || typeof body !== "object") return body;
+      if (body.debug) return body;
+      return {
+        ...body,
+        debug: buildSlowQueryDebugPayload(options)
       };
     }
     module2.exports = {
-      DEBUG_HEADER_NAMES,
       isDebugEnabled: isDebugEnabled2,
-      buildSlowQueryDebugHeaders: buildSlowQueryDebugHeaders2
+      buildSlowQueryDebugPayload,
+      withSlowQueryDebugPayload: withSlowQueryDebugPayload2
     };
   }
 });
@@ -820,7 +831,7 @@ var {
 var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
 var { logSlowQuery, withRequestLogging } = require_logging();
-var { isDebugEnabled, buildSlowQueryDebugHeaders } = require_debug();
+var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
 var MIN_INTERVAL_MINUTES = 30;
 module.exports = withRequestLogging("vibescore-usage-hourly", async function(request, logger) {
   const opt = handleOptions(request);
@@ -828,9 +839,8 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
   const respond = (body, status, durationMs) => json(
-    body,
-    status,
-    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+    debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
+    status
   );
   if (request.method !== "GET") return respond({ error: "Method not allowed" }, 405, 0);
   const bearer = getBearerToken(request.headers.get("Authorization"));

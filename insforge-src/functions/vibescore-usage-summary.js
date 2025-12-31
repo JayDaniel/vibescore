@@ -27,7 +27,7 @@ const {
   resolvePricingProfile
 } = require('../shared/pricing');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
-const { isDebugEnabled, buildSlowQueryDebugHeaders } = require('../shared/debug');
+const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
 
 const DEFAULT_SOURCE = 'codex';
 
@@ -38,9 +38,8 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
   const respond = (body, status, durationMs) => json(
-    body,
-    status,
-    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+    debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
+    status
   );
 
   if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);

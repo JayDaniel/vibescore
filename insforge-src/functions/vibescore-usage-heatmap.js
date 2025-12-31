@@ -27,7 +27,7 @@ const {
 const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
-const { isDebugEnabled, buildSlowQueryDebugHeaders } = require('../shared/debug');
+const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
 
 module.exports = withRequestLogging('vibescore-usage-heatmap', async function(request, logger) {
   const opt = handleOptions(request);
@@ -36,9 +36,8 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
   const url = new URL(request.url);
   const debugEnabled = isDebugEnabled(url);
   const respond = (body, status, durationMs) => json(
-    body,
-    status,
-    debugEnabled ? buildSlowQueryDebugHeaders({ logger, durationMs }) : null
+    debugEnabled ? withSlowQueryDebugPayload(body, { logger, durationMs, status }) : body,
+    status
   );
 
   if (request.method !== 'GET') return respond({ error: 'Method not allowed' }, 405, 0);

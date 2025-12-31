@@ -1317,7 +1317,7 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
   assert.equal(body.pricing.rates_per_million_usd.cached_input, '0.175000');
 });
 
-test('vibescore-usage-summary emits debug headers when requested', async () => {
+test('vibescore-usage-summary emits debug payload when requested', async () => {
   const fn = require('../insforge-functions/vibescore-usage-summary');
   const prevThreshold = process.env.VIBESCORE_SLOW_QUERY_MS;
 
@@ -1378,20 +1378,13 @@ test('vibescore-usage-summary emits debug headers when requested', async () => {
     const res = await fn(req);
     assert.equal(res.status, 200);
 
-    const expose = res.headers.get('Access-Control-Expose-Headers') || '';
-    assert.ok(expose.includes('x-vibescore-request-id'));
-    assert.ok(expose.includes('x-vibescore-query-ms'));
-    assert.ok(expose.includes('x-vibescore-slow-threshold-ms'));
-    assert.ok(expose.includes('x-vibescore-slow-query'));
-
-    const requestId = res.headers.get('x-vibescore-request-id');
-    assert.ok(requestId && requestId.length > 0);
-    const queryMs = Number(res.headers.get('x-vibescore-query-ms'));
-    assert.ok(Number.isFinite(queryMs));
-    const thresholdMs = Number(res.headers.get('x-vibescore-slow-threshold-ms'));
-    assert.ok(Number.isFinite(thresholdMs));
-    const slowFlag = res.headers.get('x-vibescore-slow-query');
-    assert.ok(slowFlag === '0' || slowFlag === '1');
+    const payload = await res.json();
+    assert.ok(payload.debug);
+    assert.ok(payload.debug.request_id && payload.debug.request_id.length > 0);
+    assert.equal(payload.debug.status, 200);
+    assert.ok(Number.isFinite(payload.debug.query_ms));
+    assert.ok(Number.isFinite(payload.debug.slow_threshold_ms));
+    assert.equal(typeof payload.debug.slow_query, 'boolean');
 
     const noDebugReq = new Request(
       'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
@@ -1402,8 +1395,8 @@ test('vibescore-usage-summary emits debug headers when requested', async () => {
     );
     const noDebugRes = await fn(noDebugReq);
     assert.equal(noDebugRes.status, 200);
-    assert.equal(noDebugRes.headers.get('x-vibescore-request-id'), null);
-    assert.equal(noDebugRes.headers.get('x-vibescore-query-ms'), null);
+    const noDebugPayload = await noDebugRes.json();
+    assert.equal(noDebugPayload.debug, undefined);
   } finally {
     if (prevThreshold === undefined) delete process.env.VIBESCORE_SLOW_QUERY_MS;
     else process.env.VIBESCORE_SLOW_QUERY_MS = prevThreshold;

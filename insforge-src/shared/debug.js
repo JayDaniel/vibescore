@@ -2,13 +2,6 @@
 
 const { getSlowQueryThresholdMs } = require('./logging');
 
-const DEBUG_HEADER_NAMES = [
-  'x-vibescore-request-id',
-  'x-vibescore-query-ms',
-  'x-vibescore-slow-threshold-ms',
-  'x-vibescore-slow-query'
-];
-
 function isDebugEnabled(url) {
   if (!url) return false;
   if (typeof url === 'string') {
@@ -22,20 +15,38 @@ function isDebugEnabled(url) {
   return url?.searchParams?.get('debug') === '1';
 }
 
-function buildSlowQueryDebugHeaders({ logger, durationMs } = {}) {
+function buildSlowQueryDebugPayload({ logger, durationMs, status } = {}) {
   const safeDuration = Number.isFinite(durationMs) ? Math.max(0, Math.round(durationMs)) : 0;
   const thresholdMs = getSlowQueryThresholdMs();
+  if (logger?.log) {
+    logger.log({
+      stage: 'debug_payload',
+      status: typeof status === 'number' ? status : null,
+      query_ms: safeDuration,
+      slow_threshold_ms: thresholdMs,
+      slow_query: safeDuration >= thresholdMs ? 1 : 0
+    });
+  }
   return {
-    'Access-Control-Expose-Headers': DEBUG_HEADER_NAMES.join(', '),
-    'x-vibescore-request-id': logger?.requestId || '',
-    'x-vibescore-query-ms': String(safeDuration),
-    'x-vibescore-slow-threshold-ms': String(thresholdMs),
-    'x-vibescore-slow-query': safeDuration >= thresholdMs ? '1' : '0'
+    request_id: logger?.requestId || '',
+    status: typeof status === 'number' ? status : null,
+    query_ms: safeDuration,
+    slow_threshold_ms: thresholdMs,
+    slow_query: safeDuration >= thresholdMs
+  };
+}
+
+function withSlowQueryDebugPayload(body, options) {
+  if (!body || typeof body !== 'object') return body;
+  if (body.debug) return body;
+  return {
+    ...body,
+    debug: buildSlowQueryDebugPayload(options)
   };
 }
 
 module.exports = {
-  DEBUG_HEADER_NAMES,
   isDebugEnabled,
-  buildSlowQueryDebugHeaders
+  buildSlowQueryDebugPayload,
+  withSlowQueryDebugPayload
 };
