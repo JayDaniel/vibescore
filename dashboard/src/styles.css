@@ -116,6 +116,15 @@ body {
     transform: translateX(120%);
     opacity: 1;
   }
+
+  .matrix-header-action--ghost:hover {
+    background: transparent;
+  }
+
+  .matrix-header-action--ghost::after,
+  .matrix-header-action--ghost:hover::after {
+    opacity: 0;
+  }
 }
 
 @layer utilities {

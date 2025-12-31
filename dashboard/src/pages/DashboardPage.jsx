@@ -921,8 +921,8 @@ export function DashboardPage({
           size="header"
           aria-label={wrappedEntryLabel}
           title={wrappedEntryLabel}
-          className="bg-gold text-black border-gold hover:bg-gold/90 hover:border-gold"
-          style={{ "--matrix-header-corner": "#000000" }}
+          className="matrix-header-action--ghost bg-transparent text-gold border-gold hover:border-gold hover:text-gold"
+          style={{ "--matrix-header-corner": "#FFD700" }}
         >
           {wrappedEntryLabel}
         </MatrixButton>
