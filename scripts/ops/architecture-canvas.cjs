@@ -1149,6 +1149,67 @@ function buildModuleGroups(nodes, options = {}) {
   return { groupNodes, nodes };
 }
 
+function layoutModulesAsGrid(nodes, options = {}) {
+  const modulePadding = options.modulePadding ?? 80;
+  const moduleGap = options.moduleGap ?? 220;
+  const startX = options.startX ?? 100;
+  let cursorY = options.startY ?? 100;
+
+  const modules = new Map();
+  for (const node of nodes) {
+    if (!node.meta) continue;
+    const moduleKey = getModuleKeyFromRelPath(node.meta.relPath);
+    if (!modules.has(moduleKey)) modules.set(moduleKey, []);
+    modules.get(moduleKey).push(node);
+  }
+
+  const moduleKeys = Array.from(modules.keys()).sort((a, b) => a.localeCompare(b));
+  const groupNodes = [];
+
+  for (const moduleKey of moduleKeys) {
+    const moduleNodes = modules.get(moduleKey);
+    if (!moduleNodes || moduleNodes.length === 0) continue;
+
+    moduleNodes.sort((a, b) => {
+      const ar = a.meta?.relPath || a.id;
+      const br = b.meta?.relPath || b.id;
+      return ar.localeCompare(br);
+    });
+
+    const maxWidth = Math.max(...moduleNodes.map((n) => n.width || 0), 280);
+    const maxHeight = Math.max(...moduleNodes.map((n) => n.height || 0), 160);
+    const cellSize = Math.max(maxWidth + 80, maxHeight + 80);
+    const count = moduleNodes.length;
+    const columns = Math.max(1, Math.ceil(Math.sqrt(count)));
+    const rows = Math.ceil(count / columns);
+
+    for (let i = 0; i < moduleNodes.length; i++) {
+      const node = moduleNodes[i];
+      const col = i % columns;
+      const row = Math.floor(i / columns);
+      const x = startX + col * cellSize;
+      const y = cursorY + row * cellSize;
+      node.x = Math.round(x);
+      node.y = Math.round(y);
+    }
+
+    const bounds = computeBounds(moduleNodes);
+    groupNodes.push({
+      id: `group_${hashString(`module:${moduleKey}`)}`,
+      type: "group",
+      x: Math.round(bounds.minX - modulePadding),
+      y: Math.round(bounds.minY - modulePadding),
+      width: Math.max(240, Math.round(bounds.width + modulePadding * 2)),
+      height: Math.max(240, Math.round(bounds.height + modulePadding * 2)),
+      label: moduleKey
+    });
+
+    cursorY = bounds.maxY + modulePadding + moduleGap;
+  }
+
+  return { groupNodes, nodes };
+}
+
 function aggregateNodesIfNeeded(nodes, edges, maxNodes = 300) {
   if (nodes.length <= maxNodes) return { nodes, edges };
 
@@ -1390,29 +1451,7 @@ async function buildCanvasModel({ rootDir }) {
 
   annotateLayers(allNodes);
   if (ENABLE_MODULE_GROUPS) {
-    const modules = new Map();
-    for (const node of allNodes) {
-      if (!node.meta) continue;
-      const moduleKey = getModuleKeyFromRelPath(node.meta.relPath);
-      if (!modules.has(moduleKey)) modules.set(moduleKey, []);
-      modules.get(moduleKey).push(node);
-    }
-
-    const moduleKeys = Array.from(modules.keys()).sort((a, b) => a.localeCompare(b));
-    for (const moduleKey of moduleKeys) {
-      const moduleNodes = modules.get(moduleKey);
-      if (!moduleNodes || moduleNodes.length === 0) continue;
-      layoutNodes(moduleNodes, edges, architecture, {
-        leftStartX: 0,
-        rightStartX: 920,
-        fullWidth: 1600,
-        sideWidth: 720,
-        startY: 0,
-        getModuleKey: () => moduleKey
-      });
-    }
-
-    const grouped = buildModuleGroups(allNodes, { modulePadding: 80, moduleGap: 220, startX: 100, startY: 100 });
+    const grouped = layoutModulesAsGrid(allNodes, { modulePadding: 80, moduleGap: 220, startX: 100, startY: 100 });
     allNodes = grouped.groupNodes.concat(grouped.nodes);
   } else {
     layoutNodes(allNodes, edges, architecture);
