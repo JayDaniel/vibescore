@@ -6,5 +6,5 @@
 
 ## 2. Verification
 - [x] 2.1 Run unit tests (`npm test`).
-- [ ] 2.2 Run acceptance check for 24-month range (200) and oversized range (400).
+- [x] 2.2 Run acceptance check for 24-month range (200) and oversized range (400).
 - [x] 2.3 Record regression statement.
