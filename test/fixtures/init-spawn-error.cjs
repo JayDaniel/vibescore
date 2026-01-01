@@ -40,7 +40,7 @@ const cp = require('node:child_process');
     const { cmdInit } = require('../../src/commands/init');
 
     process.stdout.write = () => true;
-    await cmdInit(['--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
+    await cmdInit(['--yes', '--no-auth', '--no-open', '--base-url', 'https://example.invalid']);
 
     assert.ok(errorListenerAttached, 'expected spawn error handler');
   } finally {

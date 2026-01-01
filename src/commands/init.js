@@ -9,24 +9,50 @@ const { ensureDir, writeFileAtomic, readJson, writeJson, chmod600IfPossible } = 
 const { prompt, promptHidden } = require('../lib/prompt');
 const {
   upsertCodexNotify,
-  loadCodexNotifyOriginal,
   upsertEveryCodeNotify,
-  loadEveryCodeNotifyOriginal
+  readCodexNotify,
+  readEveryCodeNotify
 } = require('../lib/codex-config');
-const { upsertClaudeHook, buildClaudeHookCommand } = require('../lib/claude-config');
+const { upsertClaudeHook, buildClaudeHookCommand, isClaudeHookConfigured } = require('../lib/claude-config');
 const {
   resolveGeminiConfigDir,
   resolveGeminiSettingsPath,
   buildGeminiHookCommand,
-  upsertGeminiHook
+  upsertGeminiHook,
+  isGeminiHookConfigured
 } = require('../lib/gemini-config');
-const { resolveOpencodeConfigDir, upsertOpencodePlugin } = require('../lib/opencode-config');
+const { resolveOpencodeConfigDir, upsertOpencodePlugin, isOpencodePluginInstalled } = require('../lib/opencode-config');
 const { beginBrowserAuth, openInBrowser } = require('../lib/browser-auth');
 const {
   issueDeviceTokenWithPassword,
   issueDeviceTokenWithAccessToken,
   issueDeviceTokenWithLinkCode
 } = require('../lib/insforge');
+const {
+  BOLD,
+  DIM,
+  CYAN,
+  RESET,
+  color,
+  underline,
+  renderBox,
+  isInteractive,
+  promptMenu,
+  promptEnter,
+  createSpinner,
+  formatSummaryLine
+} = require('../lib/cli-ui');
+
+const ASCII_LOGO = [
+  '██╗   ██╗██╗██████╗ ███████╗███████╗ ██████╗  ██████╗ ██████╗ ███████╗',
+  '██║   ██║██║██╔══██╗██╔════╝██╔════╝██╔════╝ ██╔═══██╗██╔══██╗██╔════╝',
+  '██║   ██║██║██████╔╝█████╗  ███████╗██║      ██║   ██║██████╔╝█████╗',
+  '╚██╗ ██╔╝██║██╔══██╗██╔══╝  ╚════██║██║      ██║   ██║██╔══██╗██╔══╝',
+  ' ╚████╔╝ ██║██████╔╝███████╗███████║╚██████╗ ╚██████╔╝██║  ██║███████╗',
+  '  ╚═══╝  ╚═╝╚═════╝ ╚══════╝╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝╚══════╝'
+].join('\n');
+
+const DIVIDER = '----------------------------------------------';
 
 async function cmdInit(argv) {
   const opts = parseArgs(argv);
@@ -35,9 +61,6 @@ async function cmdInit(argv) {
   const rootDir = path.join(home, '.vibescore');
   const trackerDir = path.join(rootDir, 'tracker');
   const binDir = path.join(rootDir, 'bin');
-
-  await ensureDir(trackerDir);
-  await ensureDir(binDir);
 
   const configPath = path.join(trackerDir, 'config.json');
   const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
@@ -49,15 +72,202 @@ async function cmdInit(argv) {
   const appDir = path.join(trackerDir, 'app');
   const trackerBinPath = path.join(appDir, 'bin', 'tracker.js');
 
+  renderWelcome();
+
+  if (opts.dryRun) {
+    process.stdout.write(`${color('Dry run: preview only (no changes applied).', DIM)}\n\n`);
+  }
+
+  if (isInteractive() && !opts.yes && !opts.dryRun) {
+    const choice = await promptMenu({
+      message: '? How would you like to proceed?',
+      options: ['Start Setup (Recommended)', 'Exit'],
+      defaultIndex: 0
+    });
+    if (choice.toLowerCase().startsWith('exit')) {
+      process.stdout.write('Setup cancelled.\n');
+      return;
+    }
+  }
+
+  if (opts.dryRun) {
+    const preview = await buildDryRunSummary({
+      opts,
+      home,
+      trackerDir,
+      configPath,
+      notifyPath
+    });
+    renderTransparencyReport({ summary: preview.summary, isDryRun: true });
+    if (preview.pendingBrowserAuth) {
+      process.stdout.write('Account linking would be required for full setup.\n');
+    } else if (!preview.deviceToken) {
+      renderAccountNotLinked({ context: 'dry-run' });
+    }
+    return;
+  }
+
+  const spinner = createSpinner({ text: 'Analyzing and configuring local environment...' });
+  spinner.start();
+  let setup;
+  try {
+    setup = await runSetup({
+      opts,
+      home,
+      baseUrl,
+      trackerDir,
+      binDir,
+      configPath,
+      notifyOriginalPath,
+      linkCodeStatePath,
+      notifyPath,
+      appDir,
+      trackerBinPath
+    });
+  } catch (err) {
+    spinner.stop();
+    throw err;
+  }
+  spinner.stop();
+
+  renderTransparencyReport({
+    summary: setup.summary,
+    isDryRun: false,
+    includeDivider: setup.pendingBrowserAuth
+  });
+
+  let deviceToken = setup.deviceToken;
+  let deviceId = setup.deviceId;
+
+  if (setup.pendingBrowserAuth) {
+    const deviceName = opts.deviceName || os.hostname();
+    if (!dashboardUrl) dashboardUrl = await detectLocalDashboardUrl();
+    const flow = await beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs: 10 * 60_000, open: false });
+    const canAutoOpen = !opts.noOpen;
+    renderFinalStep({ authUrl: flow.authUrl, canAutoOpen });
+    if (canAutoOpen && isInteractive()) {
+      await promptEnter('');
+    }
+    if (canAutoOpen) {
+      if (isInteractive()) await sleep(250);
+      openInBrowser(flow.authUrl);
+    }
+    const callback = await flow.waitForCallback();
+    const issued = await issueDeviceTokenWithAccessToken({ baseUrl, accessToken: callback.accessToken, deviceName });
+    deviceToken = issued.token;
+    deviceId = issued.deviceId;
+    await writeJson(configPath, { baseUrl, deviceToken, deviceId, installedAt: setup.installedAt });
+    await chmod600IfPossible(configPath);
+    renderSuccessBox({ deviceId, configPath });
+  } else if (deviceToken) {
+    renderSuccessBox({ deviceId, configPath });
+  } else {
+    renderAccountNotLinked();
+  }
+
+  try {
+    spawnInitSync({ trackerBinPath, packageName: '@vibescore/tracker' });
+  } catch (err) {
+    const msg = err && err.message ? err.message : 'unknown error';
+    process.stderr.write(`Initial sync spawn failed: ${msg}\n`);
+  }
+}
+
+function renderWelcome() {
   process.stdout.write(
     [
-      'Starting VibeScore setup:',
-      'Open-source. No conversation uploads. GitHub: https://github.com/victorGPT/vibescore',
-      '- Install local runtime + hooks.',
-      '- Browser sign-in runs last if needed.',
+      ASCII_LOGO,
+      '',
+      `${BOLD}Welcome to VibeScore CLI${RESET}`,
+      DIVIDER,
+      `${CYAN}Privacy First: Your content stays local. We only upload token counts and minimal metadata, never prompts or responses.${RESET}`,
+      DIVIDER,
+      '',
+      'This tool will:',
+      '  - Analyze your local AI CLI configurations (Codex, Every Code, Claude, Gemini, Opencode)',
+      '  - Set up lightweight hooks to track your flow state',
+      '  - Link your device to your VibeScore account',
+      '',
+      '(Nothing will be changed until you confirm below)',
       ''
     ].join('\n')
   );
+}
+
+function renderTransparencyReport({ summary, isDryRun, includeDivider = false }) {
+  const header = isDryRun ? 'Dry run complete. Preview only; no changes were applied.' : 'Local setup complete.';
+  const lines = [header, '', "We've integrated VibeScore with:"];
+  for (const item of summary) lines.push(formatSummaryLine(item));
+  if (includeDivider) lines.push('', DIVIDER, '');
+  process.stdout.write(`${lines.join('\n')}\n`);
+}
+
+function renderFinalStep({ authUrl, canAutoOpen }) {
+  const lines = [
+    'Final Step: Link your account',
+    '',
+    canAutoOpen ? 'Press [Enter] to open your browser and sign in.' : 'Open the link below to sign in.'
+  ];
+  if (authUrl) lines.push(`(Or visit: ${underline(authUrl)})`);
+  lines.push('');
+  process.stdout.write(lines.join('\n'));
+}
+
+function renderSuccessBox({ deviceId, configPath }) {
+  const identityLine = deviceId ? `Device ID: ${deviceId}` : 'Account linked.';
+  const lines = [
+    'You are all set!',
+    '',
+    identityLine,
+    `Token saved to: ${configPath}`,
+    '',
+    'VibeScore is now running in the background.',
+    'You can close this terminal window.'
+  ];
+  process.stdout.write(`${renderBox(lines)}\n`);
+}
+
+function renderAccountNotLinked({ context } = {}) {
+  if (context === 'dry-run') {
+    process.stdout.write(['', 'Account not linked (dry run).', 'Run init without --dry-run to link your account.', ''].join('\n'));
+    return;
+  }
+  process.stdout.write(['', 'Account not linked.', 'Set VIBESCORE_DEVICE_TOKEN then re-run init.', ''].join('\n'));
+}
+
+function shouldUseBrowserAuth({ deviceToken, opts }) {
+  if (deviceToken) return false;
+  if (opts.noAuth) return false;
+  if (opts.linkCode) return false;
+  if (opts.email || opts.password) return false;
+  return true;
+}
+
+async function buildDryRunSummary({ opts, home, trackerDir, configPath, notifyPath }) {
+  const existingConfig = await readJson(configPath);
+  const deviceTokenFromEnv = process.env.VIBESCORE_DEVICE_TOKEN || null;
+  const deviceToken = deviceTokenFromEnv || existingConfig?.deviceToken || null;
+  const pendingBrowserAuth = shouldUseBrowserAuth({ deviceToken, opts });
+  const context = buildIntegrationTargets({ home, trackerDir, notifyPath });
+  const summary = await previewIntegrations({ context });
+  return { summary, pendingBrowserAuth, deviceToken };
+}
+
+async function runSetup({
+  opts,
+  home,
+  baseUrl,
+  trackerDir,
+  binDir,
+  configPath,
+  notifyOriginalPath,
+  linkCodeStatePath,
+  notifyPath,
+  appDir,
+  trackerBinPath
+}) {
+  await ensureDir(trackerDir);
+  await ensureDir(binDir);
 
   const existingConfig = await readJson(configPath);
   const deviceTokenFromEnv = process.env.VIBESCORE_DEVICE_TOKEN || null;
@@ -122,163 +332,221 @@ async function cmdInit(argv) {
   await writeJson(configPath, config);
   await chmod600IfPossible(configPath);
 
-  // Install notify handler (non-blocking; chains the previous notify if present).
   await writeFileAtomic(
     notifyPath,
     buildNotifyHandler({ trackerDir, trackerBinPath, packageName: '@vibescore/tracker' })
   );
   await fs.chmod(notifyPath, 0o755).catch(() => {});
 
-  // Configure Codex notify hook.
+  const summary = await applyIntegrationSetup({
+    home,
+    trackerDir,
+    notifyPath,
+    notifyOriginalPath
+  });
+
+  return {
+    summary,
+    pendingBrowserAuth,
+    deviceToken,
+    deviceId,
+    installedAt
+  };
+}
+
+function buildIntegrationTargets({ home, trackerDir, notifyPath }) {
   const codexHome = process.env.CODEX_HOME || path.join(home, '.codex');
   const codexConfigPath = path.join(codexHome, 'config.toml');
   const codeHome = process.env.CODE_HOME || path.join(home, '.code');
   const codeConfigPath = path.join(codeHome, 'config.toml');
-  const notifyCmd = ['/usr/bin/env', 'node', notifyPath];
-  const codexProbe = await probeFile(codexConfigPath);
-  const codexConfigExists = codexProbe.exists;
-  let result = null;
-  let chained = null;
-  if (codexConfigExists) {
-    result = await upsertCodexNotify({
-      codexConfigPath,
-      notifyCmd,
-      notifyOriginalPath
-    });
-    chained = await loadCodexNotifyOriginal(notifyOriginalPath);
-  }
+  const notifyOriginalPath = path.join(trackerDir, 'codex_notify_original.json');
   const codeNotifyOriginalPath = path.join(trackerDir, 'code_notify_original.json');
-  const codeProbe = await probeFile(codeConfigPath);
-  const codeConfigExists = codeProbe.exists;
-  let codeResult = null;
-  let codeChained = null;
-  if (codeConfigExists) {
-    const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
-    codeResult = await upsertEveryCodeNotify({
-      codeConfigPath,
-      notifyCmd: codeNotifyCmd,
-      notifyOriginalPath: codeNotifyOriginalPath
-    });
-    codeChained = await loadEveryCodeNotifyOriginal(codeNotifyOriginalPath);
-  }
-
+  const notifyCmd = ['/usr/bin/env', 'node', notifyPath];
+  const codeNotifyCmd = ['/usr/bin/env', 'node', notifyPath, '--source=every-code'];
   const claudeDir = path.join(home, '.claude');
   const claudeSettingsPath = path.join(claudeDir, 'settings.json');
-  const claudeDirExists = await isDir(claudeDir);
-  let claudeResult = null;
-  if (claudeDirExists) {
-    const claudeHookCommand = buildClaudeHookCommand(notifyPath);
-    claudeResult = await upsertClaudeHook({
-      settingsPath: claudeSettingsPath,
-      hookCommand: claudeHookCommand
-    });
-  }
-
+  const claudeHookCommand = buildClaudeHookCommand(notifyPath);
   const geminiConfigDir = resolveGeminiConfigDir({ home, env: process.env });
-  const geminiConfigExists = await isDir(geminiConfigDir);
   const geminiSettingsPath = resolveGeminiSettingsPath({ configDir: geminiConfigDir });
-  let geminiResult = null;
-  if (geminiConfigExists) {
-    const geminiHookCommand = buildGeminiHookCommand(notifyPath);
-    geminiResult = await upsertGeminiHook({
-      settingsPath: geminiSettingsPath,
-      hookCommand: geminiHookCommand
+  const geminiHookCommand = buildGeminiHookCommand(notifyPath);
+  const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
+
+  return {
+    codexConfigPath,
+    codeConfigPath,
+    notifyOriginalPath,
+    codeNotifyOriginalPath,
+    notifyCmd,
+    codeNotifyCmd,
+    claudeDir,
+    claudeSettingsPath,
+    claudeHookCommand,
+    geminiConfigDir,
+    geminiSettingsPath,
+    geminiHookCommand,
+    opencodeConfigDir
+  };
+}
+
+async function applyIntegrationSetup({ home, trackerDir, notifyPath, notifyOriginalPath }) {
+  const context = buildIntegrationTargets({ home, trackerDir, notifyPath });
+  context.notifyOriginalPath = notifyOriginalPath;
+
+  const summary = [];
+
+  const codexProbe = await probeFile(context.codexConfigPath);
+  if (codexProbe.exists) {
+    const result = await upsertCodexNotify({
+      codexConfigPath: context.codexConfigPath,
+      notifyCmd: context.notifyCmd,
+      notifyOriginalPath: context.notifyOriginalPath
     });
+    summary.push({
+      label: 'Codex CLI',
+      status: result.changed ? 'updated' : 'set',
+      detail: result.changed ? 'Updated config' : 'Config already set'
+    });
+  } else {
+    summary.push({ label: 'Codex CLI', status: 'skipped', detail: renderSkipDetail(codexProbe) });
   }
 
-  const opencodeConfigDir = resolveOpencodeConfigDir({ home, env: process.env });
+  const claudeDirExists = await isDir(context.claudeDir);
+  if (claudeDirExists) {
+    await upsertClaudeHook({
+      settingsPath: context.claudeSettingsPath,
+      hookCommand: context.claudeHookCommand
+    });
+    summary.push({ label: 'Claude', status: 'installed', detail: 'Hooks installed' });
+  } else {
+    summary.push({ label: 'Claude', status: 'skipped', detail: 'Config not found' });
+  }
+
+  const geminiConfigExists = await isDir(context.geminiConfigDir);
+  if (geminiConfigExists) {
+    await upsertGeminiHook({
+      settingsPath: context.geminiSettingsPath,
+      hookCommand: context.geminiHookCommand
+    });
+    summary.push({ label: 'Gemini', status: 'installed', detail: 'Hooks installed' });
+  } else {
+    summary.push({ label: 'Gemini', status: 'skipped', detail: 'Config not found' });
+  }
+
   const opencodeResult = await upsertOpencodePlugin({
-    configDir: opencodeConfigDir,
+    configDir: context.opencodeConfigDir,
     notifyPath
   });
-
-  process.stdout.write(
-    [
-      'Local setup done:',
-      `- Config: ${configPath}`,
-      `- Notify handler: ${notifyPath}`,
-      codexConfigExists
-        ? `- Codex config: ${codexConfigPath}`
-        : `- Codex notify: skipped (${renderProbeSkip(codexConfigPath, codexProbe)})`,
-      codexConfigExists
-        ? result?.changed
-          ? '- Codex notify: updated'
-          : '- Codex notify: set'
-        : null,
-      codexConfigExists ? (chained ? '- Codex notify: chained (kept original)' : '- Codex notify: no original') : null,
-      codeConfigExists
-        ? `- Every Code config: ${codeConfigPath}`
-        : `- Every Code notify: skipped (${renderProbeSkip(codeConfigPath, codeProbe)})`,
-      codeConfigExists && codeResult
-        ? codeResult.changed
-          ? '- Every Code notify: updated'
-          : '- Every Code notify: set'
-        : null,
-      codeConfigExists
-        ? codeChained
-          ? '- Every Code notify: chained (kept original)'
-          : '- Every Code notify: no original'
-        : null,
-      claudeDirExists
-        ? claudeResult?.changed
-          ? `- Claude hooks: updated (${claudeSettingsPath})`
-          : `- Claude hooks: set (${claudeSettingsPath})`
-        : '- Claude hooks: skipped (~/.claude not found)',
-      geminiConfigExists
-        ? geminiResult?.changed
-          ? `- Gemini hooks: updated (${geminiSettingsPath})`
-          : `- Gemini hooks: set (${geminiSettingsPath})`
-        : `- Gemini hooks: skipped (${geminiConfigDir} not found)`,
-      opencodeResult?.skippedReason === 'config-missing'
-        ? '- Opencode plugin: skipped (config dir missing)'
-        : opencodeResult?.changed
-          ? `- Opencode plugin: updated (${opencodeConfigDir})`
-          : `- Opencode plugin: set (${opencodeConfigDir})`,
-      pendingBrowserAuth
-        ? '- Account: pending (browser sign-in last)'
-        : deviceToken
-          ? `- Account: linked (token saved: ${maskSecret(deviceToken)})`
-          : '- Account: not set (set VIBESCORE_DEVICE_TOKEN then re-run init)',
-      ''
-    ].join('\n')
-  );
-
-  if (pendingBrowserAuth) {
-    const deviceName = opts.deviceName || os.hostname();
-    if (!dashboardUrl) dashboardUrl = await detectLocalDashboardUrl();
-    const flow = await beginBrowserAuth({ baseUrl, dashboardUrl, timeoutMs: 10 * 60_000, open: false });
-    process.stdout.write(
-      [
-        '',
-        'Next: link your account (last step).',
-        `- Open: ${flow.authUrl}`,
-        '- Sign in/up, then return.',
-        "- If it doesn't open, copy the link.",
-        '- After linking, wait ~2 minutes for first sync.',
-        ''
-      ].join('\n')
-    );
-    if (!opts.noOpen) {
-      await sleep(5000);
-      openInBrowser(flow.authUrl);
-    }
-    const callback = await flow.waitForCallback();
-    const issued = await issueDeviceTokenWithAccessToken({ baseUrl, accessToken: callback.accessToken, deviceName });
-    deviceToken = issued.token;
-    deviceId = issued.deviceId;
-    await writeJson(configPath, { baseUrl, deviceToken, deviceId, installedAt });
-    await chmod600IfPossible(configPath);
-    process.stdout.write(
-      ['', 'Account linked.', `- Token saved: ${maskSecret(deviceToken)}`, '- Initial sync runs in background.', ''].join('\n')
-    );
+  if (opencodeResult?.skippedReason === 'config-missing') {
+    summary.push({ label: 'Opencode Plugin', status: 'skipped', detail: 'Config not found' });
+  } else {
+    summary.push({ label: 'Opencode Plugin', status: opencodeResult?.changed ? 'installed' : 'set', detail: 'Plugin installed' });
   }
 
-  try {
-    spawnInitSync({ trackerBinPath, packageName: '@vibescore/tracker' });
-  } catch (err) {
-    const msg = err && err.message ? err.message : 'unknown error';
-    process.stderr.write(`Initial sync spawn failed: ${msg}\n`);
+  const codeProbe = await probeFile(context.codeConfigPath);
+  if (codeProbe.exists) {
+    const result = await upsertEveryCodeNotify({
+      codeConfigPath: context.codeConfigPath,
+      notifyCmd: context.codeNotifyCmd,
+      notifyOriginalPath: context.codeNotifyOriginalPath
+    });
+    summary.push({
+      label: 'Every Code',
+      status: result.changed ? 'updated' : 'set',
+      detail: result.changed ? 'Updated config' : 'Config already set'
+    });
+  } else {
+    summary.push({ label: 'Every Code', status: 'skipped', detail: renderSkipDetail(codeProbe) });
   }
+
+  return summary;
+}
+
+async function previewIntegrations({ context }) {
+  const summary = [];
+
+  const codexProbe = await probeFile(context.codexConfigPath);
+  if (codexProbe.exists) {
+    const existing = await readCodexNotify(context.codexConfigPath);
+    const matches = arraysEqual(existing, context.notifyCmd);
+    summary.push({
+      label: 'Codex CLI',
+      status: matches ? 'set' : 'updated',
+      detail: matches ? 'Already configured' : 'Will update config'
+    });
+  } else {
+    summary.push({ label: 'Codex CLI', status: 'skipped', detail: renderSkipDetail(codexProbe) });
+  }
+
+  const claudeDirExists = await isDir(context.claudeDir);
+  if (claudeDirExists) {
+    const configured = await isClaudeHookConfigured({
+      settingsPath: context.claudeSettingsPath,
+      hookCommand: context.claudeHookCommand
+    });
+    summary.push({
+      label: 'Claude',
+      status: 'installed',
+      detail: configured ? 'Hooks already installed' : 'Will install hooks'
+    });
+  } else {
+    summary.push({ label: 'Claude', status: 'skipped', detail: 'Config not found' });
+  }
+
+  const geminiConfigExists = await isDir(context.geminiConfigDir);
+  if (geminiConfigExists) {
+    const configured = await isGeminiHookConfigured({
+      settingsPath: context.geminiSettingsPath,
+      hookCommand: context.geminiHookCommand
+    });
+    summary.push({
+      label: 'Gemini',
+      status: 'installed',
+      detail: configured ? 'Hooks already installed' : 'Will install hooks'
+    });
+  } else {
+    summary.push({ label: 'Gemini', status: 'skipped', detail: 'Config not found' });
+  }
+
+  const opencodeDirExists = await isDir(context.opencodeConfigDir);
+  if (opencodeDirExists) {
+    const installed = await isOpencodePluginInstalled({ configDir: context.opencodeConfigDir });
+    summary.push({
+      label: 'Opencode Plugin',
+      status: 'installed',
+      detail: installed ? 'Plugin already installed' : 'Will install plugin'
+    });
+  } else {
+    summary.push({ label: 'Opencode Plugin', status: 'skipped', detail: 'Config not found' });
+  }
+
+  const codeProbe = await probeFile(context.codeConfigPath);
+  if (codeProbe.exists) {
+    const existing = await readEveryCodeNotify(context.codeConfigPath);
+    const matches = arraysEqual(existing, context.codeNotifyCmd);
+    summary.push({
+      label: 'Every Code',
+      status: matches ? 'set' : 'updated',
+      detail: matches ? 'Already configured' : 'Will update config'
+    });
+  } else {
+    summary.push({ label: 'Every Code', status: 'skipped', detail: renderSkipDetail(codeProbe) });
+  }
+
+  return summary;
+}
+
+function renderSkipDetail(probe) {
+  if (!probe || probe.reason === 'missing') return 'Config not found';
+  if (probe.reason === 'permission-denied') return 'Permission denied';
+  if (probe.reason === 'not-file') return 'Invalid config';
+  return 'Unavailable';
+}
+
+function arraysEqual(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b)) return false;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
 
 function parseArgs(argv) {
@@ -290,7 +558,9 @@ function parseArgs(argv) {
     deviceName: null,
     linkCode: null,
     noAuth: false,
-    noOpen: false
+    noOpen: false,
+    yes: false,
+    dryRun: false
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -303,14 +573,11 @@ function parseArgs(argv) {
     else if (a === '--link-code') out.linkCode = argv[++i] || null;
     else if (a === '--no-auth') out.noAuth = true;
     else if (a === '--no-open') out.noOpen = true;
+    else if (a === '--yes') out.yes = true;
+    else if (a === '--dry-run') out.dryRun = true;
     else throw new Error(`Unknown option: ${a}`);
   }
   return out;
-}
-
-function maskSecret(s) {
-  if (typeof s !== 'string' || s.length < 8) return '***';
-  return `${s.slice(0, 4)}…${s.slice(-4)}`;
 }
 
 function sleep(ms) {
@@ -481,15 +748,6 @@ async function checkUrlReachable(url) {
   }
 }
 
-async function isFile(p) {
-  try {
-    const st = await fs.stat(p);
-    return st.isFile();
-  } catch (_e) {
-    return false;
-  }
-}
-
 async function probeFile(p) {
   try {
     const st = await fs.stat(p);
@@ -500,14 +758,6 @@ async function probeFile(p) {
     if (e?.code === 'EACCES' || e?.code === 'EPERM') return { exists: false, reason: 'permission-denied' };
     return { exists: false, reason: 'error', code: e?.code || 'unknown' };
   }
-}
-
-function renderProbeSkip(pathname, probe) {
-  if (!probe || probe.reason === 'missing') return `${pathname} not found`;
-  if (probe.reason === 'not-file') return `${pathname} is not a file`;
-  if (probe.reason === 'permission-denied') return `permission denied: ${pathname}`;
-  const code = probe.code ? ` (${probe.code})` : '';
-  return `unavailable: ${pathname}${code}`;
 }
 
 async function isDir(p) {
@@ -554,7 +804,9 @@ function spawnInitSync({ trackerBinPath, packageName }) {
   });
   child.on('error', (err) => {
     const msg = err && err.message ? err.message : 'unknown error';
-    process.stderr.write(`Initial sync spawn failed: ${msg}\n`);
+    const detail = process.env.VIBESCORE_DEBUG === '1' ? ` (${msg})` : '';
+    process.stderr.write(`Minor issue: Background sync could not start${detail}.\n`);
+    process.stderr.write('Run: npx --yes @vibescore/tracker sync\n');
   });
   child.unref();
 }

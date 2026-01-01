@@ -33,7 +33,7 @@ _Real-time AI Analytics for Codex CLI_
 
 We believe your code and thoughts are your own. VibeScore is built with strict privacy pillars to ensure your data never leaves your control.
 
-- 🛡️ **Zero Code Infiltration**: We never touch your source code or prompts. Our sniffer only extracts numeric token counts (Input, Output, Reasoning, Cached).
+- 🛡️ **No Content Upload**: We never upload prompts or responses. We only compute token counts locally and send counts plus minimal metadata (timestamps, model, device).
 - 📡 **Local Aggregation**: All token consumption analysis happens on your machine. We only relay quantized 30-minute usage buckets to the cloud.
 - 🔐 **Hashed Identity**: Device tokens are hashed using SHA-256 server-side. Your raw credentials never exist in our database.
 - 🔦 **Full Transparency**: Audit the sync logic yourself in `src/lib/rollout.js`. We literally only capture numbers and timestamps.
@@ -63,6 +63,8 @@ Initialize your environment once and forget it. VibeScore handles all synchroniz
 npx --yes @vibescore/tracker init
 ```
 
+Note: `init` shows a consent prompt in interactive shells. Use `--yes` to skip prompts in non-interactive environments.
+Optional: `--dry-run` previews planned changes without writing files.
 Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically. No further user intervention is required for data sync.
 Note: If Gemini CLI home exists, `init` installs a `SessionEnd` hook in `~/.gemini/settings.json` and sets `tools.enableHooks = true` so hooks execute. This enables all Gemini hooks; disable by setting `tools.enableHooks = false` (or disabling the `vibescore-tracker` hook).
 

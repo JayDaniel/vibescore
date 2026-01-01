@@ -33,7 +33,7 @@ _Codex CLI 实时 AI 分析工具_
 
 我们坚信你的代码和思想属于你自己。VibeScore 建立在严格的隐私支柱之上，确保你的数据始终处于受控状态。
 
-- 🛡️ **代码零入侵**：我们绝不触碰你的源代码或 Prompt。我们的嗅探器仅提取数值化的 Token 计数（输入、输出、推理、缓存）。
+- 🛡️ **内容不出本地**：我们从不上传 Prompt 或响应内容。只在本地计算 Token 数量，并上传 Token 计数与最小元数据（时间、模型、设备）。
 - 📡 **本地聚合**：所有 Token 消耗分析均在你的机器上完成。我们仅将量化的 30 分钟使用桶（Usage Buckets）中继到云端。
 - 🔐 **身份哈希**：设备令牌在服务端使用 SHA-256 进行哈希处理。你的原始凭据绝不会存在于我们的数据库中。
 - 🔦 **全程透明**：你可以亲自审计 `src/lib/rollout.js` 中的同步逻辑。我们真正采集的只有数字和时间戳。
@@ -63,6 +63,8 @@ _Codex CLI 实时 AI 分析工具_
 npx --yes @vibescore/tracker init
 ```
 
+说明：交互式终端会显示授权菜单；非交互环境可使用 `--yes` 跳过。
+可选：`--dry-run` 仅预览将发生的变更，不写入任何文件。
 说明：若存在 `~/.code/config.toml`（或 `CODE_HOME`），`init` 会自动配置 Every Code 的 `notify`。配置完成后，数据同步完全自动化，无需后续人工干预。
 说明：若检测到 Gemini CLI home，`init` 会在 `~/.gemini/settings.json` 安装 `SessionEnd` hook，并将 `tools.enableHooks = true` 以确保 hook 生效。这会启用所有 Gemini hooks；如需关闭，可将 `tools.enableHooks = false`（或禁用 `vibescore-tracker` hook）。
 

@@ -17,7 +17,7 @@ async function main() {
 
   const init = spawnSync(
     process.execPath,
-    [path.join(repoRoot, 'bin', 'tracker.js'), 'init', '--no-auth', '--no-open'],
+    [path.join(repoRoot, 'bin', 'tracker.js'), 'init', '--yes', '--no-auth', '--no-open'],
     { env, stdio: 'inherit' }
   );
   if (init.status !== 0) {
