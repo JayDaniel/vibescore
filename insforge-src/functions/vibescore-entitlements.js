@@ -137,7 +137,7 @@ function normalizeIdempotencyKey(value) {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
-  return trimmed.length > 128 ? trimmed.slice(0, 128) : trimmed;
+  return trimmed;
 }
 
 function normalizeNote(value) {

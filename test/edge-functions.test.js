@@ -2284,6 +2284,58 @@ test('vibescore-entitlements replays idempotency_key without duplicate insert', 
   assert.equal(db.rows.size, 1);
 });
 
+test('vibescore-entitlements accepts long idempotency_key without collisions', async () => {
+  const fn = require('../insforge-functions/vibescore-entitlements');
+
+  const db = createEntitlementsDbMock();
+  const userId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+  const longPrefix = 'k'.repeat(128);
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === SERVICE_ROLE_KEY) {
+      return { database: db.db };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const base = {
+    user_id: userId,
+    source: 'manual',
+    effective_from: '2025-01-01T00:00:00Z',
+    effective_to: '2124-01-01T00:00:00Z',
+    note: 'test'
+  };
+
+  const res1 = await fn(
+    new Request('http://localhost/functions/vibescore-entitlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({
+        ...base,
+        idempotency_key: `${longPrefix}A`
+      })
+    })
+  );
+  assert.equal(res1.status, 200);
+  const row1 = await res1.json();
+
+  const res2 = await fn(
+    new Request('http://localhost/functions/vibescore-entitlements', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
+      body: JSON.stringify({
+        ...base,
+        idempotency_key: `${longPrefix}B`
+      })
+    })
+  );
+  assert.equal(res2.status, 200);
+  const row2 = await res2.json();
+
+  assert.notEqual(row1.id, row2.id);
+  assert.equal(db.rows.size, 2);
+});
+
 test('vibescore-entitlements normalizes user_id for idempotency replays', async () => {
   const fn = require('../insforge-functions/vibescore-entitlements');
 
