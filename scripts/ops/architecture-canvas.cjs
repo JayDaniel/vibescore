@@ -40,6 +40,10 @@ const CONFIG_FILES = [
 const FRONT_DIR_HINTS = ["frontend", "client", "web", "dashboard", "ui"];
 const BACK_DIR_HINTS = ["backend", "server", "api", "services", "insforge", "src"];
 
+const ENABLE_AGGREGATION = false;
+const ENABLE_ISOLATED_GROUPING = false;
+const ENABLE_MODULE_GROUPS = true;
+
 const PROTECTED_CATEGORIES = new Set([
   "entry",
   "routing",
@@ -751,8 +755,14 @@ function determineLayerOrder(nodes) {
   return order.filter((g) => present.has(g));
 }
 
-function layoutNodes(nodes, edges, architecture) {
+function layoutNodes(nodes, edges, architecture, options = {}) {
   if (nodes.length === 0) return;
+
+  const getModuleKey = options.getModuleKey || ((node) => {
+    const rel = node.meta?.relPath || "";
+    const top = toPosixPath(rel).split("/")[0] || "root";
+    return top || "root";
+  });
 
   const groups = new Map();
   for (const node of nodes) {
@@ -770,22 +780,16 @@ function layoutNodes(nodes, edges, architecture) {
     layerOrder = layerOrder.slice(0, 10).concat("misc");
   }
 
-  const minSpacingX = 380;
-  const minSpacingY = 260;
-  const modulePadding = 40;
-  const moduleGap = 240;
-  const rowGap = 180;
-  const layerGap = 220;
-  const fullWidth = 2000;
-  const sideWidth = 900;
-  const leftStartX = 100;
-  const rightStartX = 1200;
-
-  const getModuleKey = (node) => {
-    const rel = node.meta?.relPath || "";
-    const top = toPosixPath(rel).split("/")[0] || "root";
-    return top || "root";
-  };
+  const minSpacingX = options.minSpacingX ?? 380;
+  const minSpacingY = options.minSpacingY ?? 260;
+  const modulePadding = options.modulePadding ?? 40;
+  const moduleGap = options.moduleGap ?? 240;
+  const rowGap = options.rowGap ?? 180;
+  const layerGap = options.layerGap ?? 220;
+  const fullWidth = options.fullWidth ?? 2000;
+  const sideWidth = options.sideWidth ?? 900;
+  const leftStartX = options.leftStartX ?? 100;
+  const rightStartX = options.rightStartX ?? 1200;
 
   const groupModules = (subset) => {
     const map = new Map();
@@ -850,7 +854,7 @@ function layoutNodes(nodes, edges, architecture) {
     return totalHeight;
   };
 
-  let currentY = 100;
+  let currentY = options.startY ?? 100;
   for (let layerIndex = 0; layerIndex < layerOrder.length; layerIndex++) {
     const layerKey = layerOrder[layerIndex];
     const layerNodes = groups.get(layerKey) || [];
@@ -897,6 +901,7 @@ function annotateLayers(nodes) {
   const order = determineLayerOrder(nodes);
   const indexByGroup = new Map(order.map((g, i) => [g, i]));
   for (const node of nodes) {
+    if (!node.meta) continue;
     node.meta.layerIndex = indexByGroup.get(node.meta.group) ?? 0;
   }
 }
@@ -1058,6 +1063,90 @@ function applyIsolatedGrouping(nodes, edges) {
     edges.push({ from: groupedNode.id, to: node.id, weight: 1 });
   }
   return { nodes, edges };
+}
+
+function getModuleKeyFromRelPath(relPath) {
+  if (!relPath) return "root";
+  const normalized = toPosixPath(relPath);
+  if (!normalized) return "root";
+  if (normalized === "external") return "external";
+  if (!normalized.includes("/")) return "root";
+  const parts = normalized.split("/").filter(Boolean);
+  return parts[0] || "root";
+}
+
+function computeBounds(nodes) {
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const node of nodes) {
+    if (typeof node.x !== "number" || typeof node.y !== "number") continue;
+    const width = typeof node.width === "number" ? node.width : 0;
+    const height = typeof node.height === "number" ? node.height : 0;
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + width);
+    maxY = Math.max(maxY, node.y + height);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return { minX: 0, minY: 0, maxX: 0, maxY: 0, width: 0, height: 0 };
+  }
+  return { minX, minY, maxX, maxY, width: maxX - minX, height: maxY - minY };
+}
+
+function shiftNodes(nodes, dx, dy) {
+  for (const node of nodes) {
+    if (typeof node.x === "number") node.x += dx;
+    if (typeof node.y === "number") node.y += dy;
+  }
+}
+
+function buildModuleGroups(nodes, options = {}) {
+  const modulePadding = options.modulePadding ?? 80;
+  const moduleGap = options.moduleGap ?? 220;
+  const startX = options.startX ?? 100;
+  let cursorY = options.startY ?? 100;
+
+  const modules = new Map();
+  for (const node of nodes) {
+    if (!node.meta) continue;
+    const moduleKey = getModuleKeyFromRelPath(node.meta.relPath);
+    if (!modules.has(moduleKey)) modules.set(moduleKey, []);
+    modules.get(moduleKey).push(node);
+  }
+
+  const moduleKeys = Array.from(modules.keys()).sort((a, b) => a.localeCompare(b));
+  const groupNodes = [];
+
+  for (const moduleKey of moduleKeys) {
+    const moduleNodes = modules.get(moduleKey);
+    if (!moduleNodes || moduleNodes.length === 0) continue;
+    const bounds = computeBounds(moduleNodes);
+    const dx = startX - bounds.minX + modulePadding;
+    const dy = cursorY - bounds.minY + modulePadding;
+    shiftNodes(moduleNodes, dx, dy);
+    const padded = {
+      minX: bounds.minX + dx - modulePadding,
+      minY: bounds.minY + dy - modulePadding,
+      width: bounds.width + modulePadding * 2,
+      height: bounds.height + modulePadding * 2
+    };
+
+    groupNodes.push({
+      id: `group_${hashString(`module:${moduleKey}`)}`,
+      type: "group",
+      x: Math.round(padded.minX),
+      y: Math.round(padded.minY),
+      width: Math.max(240, Math.round(padded.width)),
+      height: Math.max(240, Math.round(padded.height)),
+      label: moduleKey
+    });
+
+    cursorY = padded.minY + padded.height + moduleGap;
+  }
+
+  return { groupNodes, nodes };
 }
 
 function aggregateNodesIfNeeded(nodes, edges, maxNodes = 300) {
@@ -1257,8 +1346,12 @@ async function buildCanvasModel({ rootDir }) {
 
   let edges = buildEdges(fileInfos, nodeByPath, nodeByService, fileIndex);
 
-  ({ nodes: allNodes, edges } = aggregateNodesIfNeeded(allNodes, edges, SOFT_NODE_LIMIT));
-  ({ nodes: allNodes, edges } = applyIsolatedGrouping(allNodes, edges));
+  if (ENABLE_AGGREGATION) {
+    ({ nodes: allNodes, edges } = aggregateNodesIfNeeded(allNodes, edges, SOFT_NODE_LIMIT));
+  }
+  if (ENABLE_ISOLATED_GROUPING) {
+    ({ nodes: allNodes, edges } = applyIsolatedGrouping(allNodes, edges));
+  }
 
   edges = pruneEdges(edges, { maxEdges: 50, maxOut: 5, keepExternal: true, maxExternalEdges: 12, nodes: allNodes });
   allNodes = ensureMinimumNodes(allNodes);
@@ -1296,7 +1389,34 @@ async function buildCanvasModel({ rootDir }) {
   }
 
   annotateLayers(allNodes);
-  layoutNodes(allNodes, edges, architecture);
+  if (ENABLE_MODULE_GROUPS) {
+    const modules = new Map();
+    for (const node of allNodes) {
+      if (!node.meta) continue;
+      const moduleKey = getModuleKeyFromRelPath(node.meta.relPath);
+      if (!modules.has(moduleKey)) modules.set(moduleKey, []);
+      modules.get(moduleKey).push(node);
+    }
+
+    const moduleKeys = Array.from(modules.keys()).sort((a, b) => a.localeCompare(b));
+    for (const moduleKey of moduleKeys) {
+      const moduleNodes = modules.get(moduleKey);
+      if (!moduleNodes || moduleNodes.length === 0) continue;
+      layoutNodes(moduleNodes, edges, architecture, {
+        leftStartX: 0,
+        rightStartX: 920,
+        fullWidth: 1600,
+        sideWidth: 720,
+        startY: 0,
+        getModuleKey: () => moduleKey
+      });
+    }
+
+    const grouped = buildModuleGroups(allNodes, { modulePadding: 80, moduleGap: 220, startX: 100, startY: 100 });
+    allNodes = grouped.groupNodes.concat(grouped.nodes);
+  } else {
+    layoutNodes(allNodes, edges, architecture);
+  }
 
   const nodeIndex = new Map(allNodes.map((node) => [node.id, node]));
   const canvasEdges = buildCanvasEdges(edges, nodeIndex);
