@@ -156,6 +156,19 @@ export function LandingPage({ signInUrl, signUpUrl }) {
           extrasSkeleton
         )}
 
+        <section className="w-full max-w-4xl border border-matrix-ghost bg-matrix-panel p-4">
+          <div className="relative overflow-hidden border border-matrix-dim bg-black/60 shadow-[0_0_30px_rgba(0,255,65,0.15)]">
+            <img
+              src="/vibe-score-link.png"
+              alt={copy("landing.screenshot.alt")}
+              className="block w-full h-auto"
+              loading="lazy"
+              decoding="async"
+            />
+            <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(0,255,65,0.08),rgba(0,0,0,0)_40%)]"></div>
+          </div>
+        </section>
+
         <section className="w-full max-w-3xl border border-matrix-ghost bg-matrix-panel px-6 py-6 space-y-4">
           <h2 className="text-2xl md:text-3xl font-bold text-matrix-bright tracking-tight">
             {copy("landing.seo.title")}
