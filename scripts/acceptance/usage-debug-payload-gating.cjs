@@ -117,9 +117,9 @@ async function main() {
 
   global.createClient = createClientStub;
 
-  const usageSummary = require('../../insforge-src/functions/vibescore-usage-summary.js');
+  const usageSummary = require('../../insforge-src/functions/vibeusage-usage-summary.js');
 
-  const base = 'http://local/functions/vibescore-usage-summary?from=2025-12-30&to=2025-12-30';
+  const base = 'http://local/functions/vibeusage-usage-summary?from=2025-12-30&to=2025-12-30';
 
   const debugRes = await usageSummary(
     new Request(`${base}&debug=1`, {

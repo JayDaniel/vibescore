@@ -32,9 +32,9 @@ const SCENARIO_CATALOG = [
       "src/lib/rollout.js",
       "src/lib/uploader.js",
       "src/lib/vibescore-api.js",
-      "insforge-src/functions/vibescore-ingest.js",
+      "insforge-src/functions/vibeusage-ingest.js",
     ],
-    optionalPaths: ["insforge-src/functions/vibescore-sync-ping.js"],
+    optionalPaths: ["insforge-src/functions/vibeusage-sync-ping.js"],
     lifelines: [
       {
         id: "cli-user",
@@ -53,7 +53,7 @@ const SCENARIO_CATALOG = [
       {
         id: "local-storage",
         name: "Local Storage",
-        subtitle: "~/.vibescore + logs",
+        subtitle: "~/.vibeusage + logs",
         notes: "Queue, cursors, session files.",
         color: "5",
       },
@@ -67,7 +67,7 @@ const SCENARIO_CATALOG = [
       {
         id: "edge",
         name: "InsForge Edge",
-        subtitle: "vibescore-ingest",
+        subtitle: "vibeusage-ingest",
         notes: "Validates token and writes usage.",
         color: "4",
       },
@@ -116,7 +116,7 @@ const SCENARIO_CATALOG = [
       {
         from: "uploader",
         to: "edge",
-        action: "POST /functions/vibescore-ingest",
+        action: "POST /functions/vibeusage-ingest",
         summary: "Send hourly aggregates (idempotent).",
       },
       {
@@ -146,7 +146,7 @@ const SCENARIO_CATALOG = [
       {
         from: "tracker-sync",
         to: "edge",
-        action: "POST /functions/vibescore-sync-ping",
+        action: "POST /functions/vibeusage-sync-ping",
         summary: "Best-effort heartbeat.",
       },
       {
@@ -163,8 +163,8 @@ const SCENARIO_CATALOG = [
     weight: 80,
     requiredPaths: [
       "src/commands/init.js",
-      "insforge-src/functions/vibescore-link-code-init.js",
-      "insforge-src/functions/vibescore-link-code-exchange.js",
+      "insforge-src/functions/vibeusage-link-code-init.js",
+      "insforge-src/functions/vibeusage-link-code-exchange.js",
       "src/lib/vibescore-api.js",
     ],
     optionalPaths: [],
@@ -208,7 +208,7 @@ const SCENARIO_CATALOG = [
       {
         from: "tracker-init",
         to: "edge",
-        action: "POST /functions/vibescore-link-code-init",
+        action: "POST /functions/vibeusage-link-code-init",
         summary: "Request a short-lived link code.",
       },
       {
@@ -232,7 +232,7 @@ const SCENARIO_CATALOG = [
       {
         from: "tracker-init",
         to: "edge",
-        action: "POST /functions/vibescore-link-code-exchange",
+        action: "POST /functions/vibeusage-link-code-exchange",
         summary: "Exchange code for device token.",
       },
       {
@@ -268,7 +268,7 @@ const SCENARIO_CATALOG = [
     requiredPaths: [
       "dashboard/src/lib/vibescore-api.js",
       "dashboard/src/lib/insforge-client.js",
-      "insforge-src/functions/vibescore-usage-summary.js",
+      "insforge-src/functions/vibeusage-usage-summary.js",
     ],
     optionalPaths: [],
     lifelines: [
@@ -289,7 +289,7 @@ const SCENARIO_CATALOG = [
       {
         id: "edge",
         name: "InsForge Edge",
-        subtitle: "vibescore-usage-summary",
+        subtitle: "vibeusage-usage-summary",
         notes: "Aggregates usage totals.",
         color: "4",
       },
@@ -312,7 +312,7 @@ const SCENARIO_CATALOG = [
       {
         from: "dashboard-api",
         to: "edge",
-        action: "GET /functions/vibescore-usage-summary",
+        action: "GET /functions/vibeusage-usage-summary",
         summary: "Fetch aggregated usage totals.",
       },
       {

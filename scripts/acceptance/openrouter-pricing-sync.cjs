@@ -153,9 +153,9 @@ async function main() {
     });
   };
 
-  const sync = require('../../insforge-src/functions/vibescore-pricing-sync.js');
+  const sync = require('../../insforge-src/functions/vibeusage-pricing-sync.js');
 
-  const req = new Request('http://local/functions/vibescore-pricing-sync', {
+  const req = new Request('http://local/functions/vibeusage-pricing-sync', {
     method: 'POST',
     headers: {
       Authorization: 'Bearer service-role-key',

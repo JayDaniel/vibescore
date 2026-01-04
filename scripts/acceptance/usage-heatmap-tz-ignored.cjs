@@ -110,7 +110,7 @@ async function main() {
   const { handler, calls } = buildFetchStub();
   global.fetch = handler;
 
-  const usageHeatmap = require('../../insforge-src/functions/vibescore-usage-heatmap.js');
+  const usageHeatmap = require('../../insforge-src/functions/vibeusage-usage-heatmap.js');
 
   const query = [
     'weeks=2',
@@ -121,7 +121,7 @@ async function main() {
   ].join('&');
 
   const res = await usageHeatmap(
-    new Request(`http://local/functions/vibescore-usage-heatmap?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-heatmap?${query}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

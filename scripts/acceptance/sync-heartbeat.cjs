@@ -47,11 +47,11 @@ async function runScenario({ name, lastSyncAt, expectUpdated }) {
 
   const db = new DatabaseStub({ tokenRow });
   global.createClient = () => createClientStub(db);
-  delete require.cache[require.resolve('../../insforge-src/functions/vibescore-sync-ping.js')];
-  const syncPing = require('../../insforge-src/functions/vibescore-sync-ping.js');
+  delete require.cache[require.resolve('../../insforge-src/functions/vibeusage-sync-ping.js')];
+  const syncPing = require('../../insforge-src/functions/vibeusage-sync-ping.js');
 
   const res = await syncPing(
-    new Request('http://local/functions/vibescore-sync-ping', {
+    new Request('http://local/functions/vibeusage-sync-ping', {
       method: 'POST',
       headers: { Authorization: 'Bearer device-token' }
     })

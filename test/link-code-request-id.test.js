@@ -20,10 +20,10 @@ function loadInitWithStubbedInsforge(stub) {
 }
 
 test('init reuses link code request_id across retries', async () => {
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-link-code-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-link-code-'));
   const prevHome = process.env.HOME;
   const prevCodexHome = process.env.CODEX_HOME;
-  const prevToken = process.env.VIBESCORE_DEVICE_TOKEN;
+  const prevToken = process.env.VIBEUSAGE_DEVICE_TOKEN;
   const prevWrite = process.stdout.write;
 
   const calls = [];
@@ -32,7 +32,7 @@ test('init reuses link code request_id across retries', async () => {
   try {
     process.env.HOME = tmp;
     process.env.CODEX_HOME = path.join(tmp, '.codex');
-    delete process.env.VIBESCORE_DEVICE_TOKEN;
+    delete process.env.VIBEUSAGE_DEVICE_TOKEN;
     await fs.mkdir(process.env.CODEX_HOME, { recursive: true });
     const codexConfigPath = path.join(process.env.CODEX_HOME, 'config.toml');
     await fs.writeFile(codexConfigPath, '# empty\n', 'utf8');
@@ -59,7 +59,7 @@ test('init reuses link code request_id across retries', async () => {
 
     const linkCode = 'link_code_retry';
     const linkCodeHash = crypto.createHash('sha256').update(linkCode).digest('hex');
-    const linkStatePath = path.join(tmp, '.vibescore', 'tracker', 'link_code_state.json');
+    const linkStatePath = path.join(tmp, '.vibeusage', 'tracker', 'link_code_state.json');
 
     await assert.rejects(
       () =>
@@ -96,8 +96,8 @@ test('init reuses link code request_id across retries', async () => {
     else process.env.HOME = prevHome;
     if (prevCodexHome === undefined) delete process.env.CODEX_HOME;
     else process.env.CODEX_HOME = prevCodexHome;
-    if (prevToken === undefined) delete process.env.VIBESCORE_DEVICE_TOKEN;
-    else process.env.VIBESCORE_DEVICE_TOKEN = prevToken;
+    if (prevToken === undefined) delete process.env.VIBEUSAGE_DEVICE_TOKEN;
+    else process.env.VIBEUSAGE_DEVICE_TOKEN = prevToken;
     await fs.rm(tmp, { recursive: true, force: true });
 
     const insforgePath = path.join(__dirname, '..', 'src', 'lib', 'insforge.js');

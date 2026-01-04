@@ -100,11 +100,11 @@ async function main() {
   const calls = { ranges: [] };
   global.createClient = () => createClientStub(new DatabaseStub({ calls }));
 
-  const usageMonthly = require('../../insforge-src/functions/vibescore-usage-monthly.js');
+  const usageMonthly = require('../../insforge-src/functions/vibeusage-usage-monthly.js');
   const query = 'months=2&to=2025-12-15';
 
   const res = await usageMonthly(
-    new Request(`http://local/functions/vibescore-usage-monthly?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-monthly?${query}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

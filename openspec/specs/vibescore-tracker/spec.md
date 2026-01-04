@@ -1,4 +1,4 @@
-# Spec: vibescore-tracker
+# Spec: vibeusage-tracker
 
 ## Purpose
 
@@ -9,13 +9,13 @@ The system SHALL provide a consent-driven, low-noise init experience that does n
 
 #### Scenario: Consent gate before changes
 - **GIVEN** an interactive terminal and no `--yes` flag
-- **WHEN** a user runs `npx --yes @vibescore/tracker init`
+- **WHEN** a user runs `npx --yes vibeusage init`
 - **THEN** the CLI SHALL display a privacy notice and a menu before any filesystem changes
 - **AND** selecting Exit SHALL leave the filesystem unchanged
 
 #### Scenario: Non-interactive init proceeds safely
 - **GIVEN** stdin is not a TTY OR the user passes `--yes`
-- **WHEN** a user runs `npx --yes @vibescore/tracker init`
+- **WHEN** a user runs `npx --yes vibeusage init`
 - **THEN** the CLI SHALL proceed without prompting and still show the privacy notice
 
 #### Scenario: Transparency report after setup
@@ -24,10 +24,10 @@ The system SHALL provide a consent-driven, low-noise init experience that does n
 - **AND** if account linking is required, the CLI SHALL show an explicit next step to open the browser
 
 ### Requirement: Public npm distribution for CLI
-The system SHALL publish `@vibescore/tracker` to the public npm registry so users can run `npx --yes @vibescore/tracker <command>` without npm authentication.
+The system SHALL publish `vibeusage` to the public npm registry so users can run `npx --yes vibeusage <command>` without npm authentication.
 
 #### Scenario: Public install via npx
-- **WHEN** a user runs `npx --yes @vibescore/tracker --help` in a clean npm environment
+- **WHEN** a user runs `npx --yes vibeusage --help` in a clean npm environment
 - **THEN** the package SHALL download successfully and print CLI help without `404` or `403` errors
 
 ### Requirement: Notify hook install is safe and reversible
@@ -35,17 +35,17 @@ The system MUST configure Codex CLI `notify` and, when `~/.code/config.toml` exi
 
 #### Scenario: Existing notify is preserved (chained)
 - **GIVEN** `~/.codex/config.toml` already contains `notify = [...]`
-- **WHEN** a user runs `npx @vibescore/tracker init`
+- **WHEN** a user runs `npx vibeusage init`
 - **THEN** the original notify command SHALL still be invoked (chained) after the tracker notify handler
 
 #### Scenario: Existing Every Code notify is preserved (chained)
 - **GIVEN** `~/.code/config.toml` already contains `notify = [...]`
-- **WHEN** a user runs `npx @vibescore/tracker init`
+- **WHEN** a user runs `npx vibeusage init`
 - **THEN** the original Every Code notify command SHALL still be invoked (chained) after the tracker notify handler
 
 #### Scenario: Uninstall restores original notify
 - **GIVEN** the tracker was installed via `init`
-- **WHEN** a user runs `npx @vibescore/tracker uninstall`
+- **WHEN** a user runs `npx vibeusage uninstall`
 - **THEN** `~/.codex/config.toml` SHALL be restored to the pre-install notify configuration (or notify removed if none existed)
 - **AND** `~/.code/config.toml` SHALL be restored to the pre-install notify configuration (or notify removed if none existed)
 
@@ -62,12 +62,12 @@ The system SHALL only attempt to configure Every Code `notify` when `~/.code/con
 
 #### Scenario: Missing Every Code config is skipped
 - **GIVEN** `~/.code/config.toml` does not exist
-- **WHEN** a user runs `npx @vibescore/tracker init`
+- **WHEN** a user runs `npx vibeusage init`
 - **THEN** the tracker SHALL NOT create or modify `~/.code/config.toml`
 
 #### Scenario: Existing Every Code config is updated
 - **GIVEN** `~/.code/config.toml` exists
-- **WHEN** a user runs `npx @vibescore/tracker init`
+- **WHEN** a user runs `npx vibeusage init`
 - **THEN** the tracker SHALL set `notify` to invoke the tracker handler with `--source=every-code`
 
 ### Requirement: Incremental parsing with a strict data allowlist
@@ -75,7 +75,7 @@ The system SHALL incrementally parse `~/.codex/sessions/**/rollout-*.jsonl` and 
 
 #### Scenario: Parser ignores non-token_count records
 - **GIVEN** a rollout file contains non-`token_count` records (including conversational content)
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** only `token_count`-derived numeric fields SHALL be aggregated into UTC half-hour buckets and queued for upload
 - **AND** no conversational content SHALL be persisted or uploaded
 
@@ -84,12 +84,12 @@ The system SHALL parse Gemini CLI session JSON files under `~/.gemini/tmp/**/cha
 
 #### Scenario: Content fields are ignored
 - **GIVEN** a Gemini session JSON includes `messages[].content`
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** no content text SHALL be persisted or uploaded
 
 #### Scenario: Model is captured or set to unknown
 - **GIVEN** a Gemini session JSON includes `messages[].model`
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** the bucket SHALL record the trimmed model string
 - **AND** if missing or empty, the bucket SHALL set `model = "unknown"`
 
@@ -98,7 +98,7 @@ The system SHALL map Gemini token usage fields from `messages[].tokens` as follo
 
 #### Scenario: Output tokens include tool tokens
 - **GIVEN** `messages[].tokens` includes `output` and `tool`
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** the bucket SHALL store `output_tokens = output + tool`
 
 ### Requirement: Client uploads only half-hour aggregates
@@ -106,7 +106,7 @@ The system SHALL aggregate `token_count` records into UTC half-hour buckets and 
 
 #### Scenario: Half-hour aggregation payload
 - **GIVEN** multiple `token_count` events occur within the same UTC half-hour
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** the upload payload SHALL contain one row per UTC half-hour with summed token totals
 - **AND** the payload SHALL NOT include per-event rows
 
@@ -122,8 +122,8 @@ The ingest pipeline SHALL treat half-hour aggregates as keyed by `user_id + devi
 The system MUST be safe to re-run. Upload retries and repeated `sync` executions MUST NOT double-count usage in the cloud.
 
 #### Scenario: Re-running sync does not duplicate half-hour buckets
-- **GIVEN** a user ran `npx @vibescore/tracker sync` successfully once
-- **WHEN** the user runs `npx @vibescore/tracker sync` again without new Codex events
+- **GIVEN** a user ran `npx vibeusage sync` successfully once
+- **WHEN** the user runs `npx vibeusage sync` again without new Codex events
 - **THEN** the ingest result SHOULD report `0` inserted buckets (or otherwise indicate no new data)
 
 ### Requirement: Half-hour aggregate upsert is idempotent
@@ -150,11 +150,11 @@ The CLI auto sync path SHALL rate-limit uploads to at most one upload attempt pe
 
 #### Scenario: Manual sync uploads immediately
 - **GIVEN** pending half-hour buckets exist
-- **WHEN** the user runs `npx @vibescore/tracker sync`
+- **WHEN** the user runs `npx vibeusage sync`
 - **THEN** the upload SHOULD proceed immediately (no auto throttle)
 
 #### Scenario: Init triggers an immediate sync
-- **GIVEN** the user completes `npx @vibescore/tracker init`
+- **GIVEN** the user completes `npx vibeusage init`
 - **WHEN** the command finishes
 - **THEN** the CLI SHALL run a sync to upload pending half-hour buckets
 
@@ -213,7 +213,7 @@ The system SHALL record a device sync heartbeat even when no half-hour buckets a
 
 #### Scenario: Sync with no new buckets still updates heartbeat
 - **GIVEN** a device token is valid
-- **WHEN** the CLI runs `npx @vibescore/tracker sync` with zero new half-hour buckets
+- **WHEN** the CLI runs `npx vibeusage sync` with zero new half-hour buckets
 - **THEN** the backend SHALL update the device's `last_sync_at` (or equivalent) within the configured min interval
 
 ### Requirement: Usage endpoints derive from half-hour aggregates
@@ -228,11 +228,11 @@ The usage summary, daily, monthly, and heatmap endpoints SHALL derive totals fro
 When a usage endpoint is called with `debug=1`, the response MUST include a `debug` object with `request_id`, `status`, `query_ms`, `slow_threshold_ms`, and `slow_query`. The `debug` object MUST be absent when `debug` is not enabled.
 
 #### Scenario: Debug payload returned when enabled
-- **WHEN** a client calls `GET /functions/vibescore-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD&debug=1`
+- **WHEN** a client calls `GET /functions/vibeusage-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD&debug=1`
 - **THEN** the response SHALL include the `debug` object
 
 #### Scenario: Debug payload omitted by default
-- **WHEN** a client calls `GET /functions/vibescore-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- **WHEN** a client calls `GET /functions/vibeusage-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
 - **THEN** the response SHALL NOT include the `debug` object
 
 ### Requirement: Usage endpoints exclude canary buckets by default
@@ -247,7 +247,7 @@ The hourly usage endpoint SHALL mark buckets after the latest sync timestamp as 
 
 #### Scenario: Latest sync timestamp splits the local day
 - **GIVEN** the user's latest sync is at `2025-12-22T12:30:00Z`
-- **AND** the dashboard calls `GET /functions/vibescore-usage-hourly?day=2025-12-22&tz=America/Los_Angeles`
+- **AND** the dashboard calls `GET /functions/vibeusage-usage-hourly?day=2025-12-22&tz=America/Los_Angeles`
 - **WHEN** the local day is rendered
 - **THEN** buckets after the local hour containing the sync time SHALL include `missing: true`
 - **AND** buckets at or before that local hour SHALL NOT be marked missing
@@ -322,7 +322,7 @@ The system SHALL provide a leaderboard endpoint that ranks users by `total_token
 
 #### Scenario: User fetches the current weekly leaderboard
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibescore-leaderboard?period=week`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week`
 - **THEN** the response SHALL include `from` and `to` in `YYYY-MM-DD` (UTC)
 - **AND** the response SHALL include an ordered `entries` array sorted by `total_tokens` (desc)
 
@@ -331,7 +331,7 @@ The leaderboard endpoint SHALL include a `generated_at` timestamp indicating whe
 
 #### Scenario: Response includes generated_at
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibescore-leaderboard?period=month`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=month`
 - **THEN** the response SHALL include `generated_at` as an ISO timestamp
 
 ### Requirement: Leaderboard response includes `me`
@@ -340,14 +340,14 @@ The leaderboard endpoint SHALL include a `me` object that reports the current us
 #### Scenario: User is not in Top N but still receives `me`
 - **GIVEN** a user is signed in and has a valid `user_jwt`
 - **AND** the user is not within the top requested `limit`
-- **WHEN** the user calls `GET /functions/vibescore-leaderboard?period=week&limit=20`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard?period=week&limit=20`
 - **THEN** the response SHALL include a `me` object with the user's `rank` and `total_tokens`
 
 ### Requirement: Leaderboard output is privacy-safe
 The leaderboard endpoint MUST NOT expose PII (e.g., email) or any raw Codex logs. It SHALL only return publicly-safe profile fields and aggregated totals.
 
 #### Scenario: Leaderboard never returns email or raw logs
-- **WHEN** the user calls `GET /functions/vibescore-leaderboard`
+- **WHEN** the user calls `GET /functions/vibeusage-leaderboard`
 - **THEN** the response SHALL NOT include any email fields
 - **AND** the response SHALL NOT include any prompt/response/log content
 
@@ -356,7 +356,7 @@ Users SHALL be included in the leaderboard by default, but their identity MUST b
 
 #### Scenario: Default users appear as anonymous
 - **GIVEN** a user has not enabled public leaderboard profile
-- **WHEN** another signed-in user calls `GET /functions/vibescore-leaderboard`
+- **WHEN** another signed-in user calls `GET /functions/vibeusage-leaderboard`
 - **THEN** the entry for that user SHALL have `display_name` set to a non-identifying value (e.g., `Anonymous`)
 - **AND** `avatar_url` SHALL be `null`
 
@@ -364,7 +364,7 @@ Users SHALL be included in the leaderboard by default, but their identity MUST b
 The leaderboard endpoint MUST validate inputs and enforce reasonable limits to avoid excessive enumeration.
 
 #### Scenario: Invalid parameters are rejected
-- **WHEN** a user calls `GET /functions/vibescore-leaderboard?period=year`
+- **WHEN** a user calls `GET /functions/vibeusage-leaderboard?period=year`
 - **THEN** the endpoint SHALL respond with `400`
 
 ### Requirement: Leaderboard snapshots can be refreshed by automation
@@ -372,7 +372,7 @@ The system SHALL expose an authenticated refresh endpoint that rebuilds the curr
 
 #### Scenario: Automation logs per-period status
 - **GIVEN** a valid service-role bearer token
-- **WHEN** automation calls `POST /functions/vibescore-leaderboard-refresh?period=week`
+- **WHEN** automation calls `POST /functions/vibeusage-leaderboard-refresh?period=week`
 - **THEN** the response SHALL be JSON with `success: true` or `error`
 - **AND** the automation log SHALL include the HTTP status code and response body for that period
 
@@ -381,7 +381,7 @@ The system SHALL provide an authenticated endpoint for the current user to updat
 
 #### Scenario: User sets leaderboard profile to public
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `POST /functions/vibescore-leaderboard-settings` with body `{ "leaderboard_public": true }`
+- **WHEN** the user calls `POST /functions/vibeusage-leaderboard-settings` with body `{ "leaderboard_public": true }`
 - **THEN** the response SHALL include `leaderboard_public: true`
 
 ### Requirement: Leaderboard settings update SHOULD prefer single upsert
@@ -410,7 +410,7 @@ When debug mode is enabled, the CLI SHALL surface backend status and error code 
 
 #### Scenario: Debug output shows status and code
 - **GIVEN** `VIBESCORE_DEBUG=1`
-- **WHEN** `npx --yes @vibescore/tracker sync` encounters a backend error
+- **WHEN** `npx --yes vibeusage sync` encounters a backend error
 - **THEN** stderr SHALL include `Status:` and `Code:` when available
 
 ### Requirement: Dashboard compositing effects are GPU-budgeted
@@ -437,7 +437,7 @@ The system SHALL provide a heatmap endpoint that returns a GitHub-inspired activ
 
 #### Scenario: User fetches a 52-week heatmap
 - **GIVEN** a user is signed in and has a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibescore-usage-heatmap?weeks=52`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-heatmap?weeks=52`
 - **THEN** the response SHALL include a `weeks` grid with intensity `level` values in the range `0..4`
 - **AND** missing days SHALL be treated as zero activity
 
@@ -445,7 +445,7 @@ The system SHALL provide a heatmap endpoint that returns a GitHub-inspired activ
 The heatmap endpoint MUST validate inputs and enforce reasonable limits to avoid excessive range queries.
 
 #### Scenario: Invalid parameters are rejected
-- **WHEN** a user calls `GET /functions/vibescore-usage-heatmap` with an invalid `to` date or an out-of-range `weeks` value
+- **WHEN** a user calls `GET /functions/vibeusage-usage-heatmap` with an invalid `to` date or an out-of-range `weeks` value
 - **THEN** the endpoint SHALL respond with `400`
 
 ### Requirement: Edge Functions are modular in-source but single-file in deployment
@@ -505,7 +505,7 @@ The system SHALL ensure user-JWT authentication can resolve user identity even w
 
 #### Scenario: Auth SDK can resolve the current user
 - **GIVEN** `auth.users` exists and `public.users` is a view of `auth.users`
-- **WHEN** a client calls a user-JWT endpoint (e.g., `GET /functions/vibescore-usage-summary`)
+- **WHEN** a client calls a user-JWT endpoint (e.g., `GET /functions/vibeusage-usage-summary`)
 - **THEN** the auth layer resolves the user and the endpoint returns 200.
 
 ### Requirement: Hourly usage endpoint for day trend
@@ -513,7 +513,7 @@ The system SHALL provide an hourly usage endpoint that returns UTC 24-hour aggre
 
 #### Scenario: User requests hourly usage for today
 - **GIVEN** a signed-in user with a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibescore-usage-hourly?day=YYYY-MM-DD`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-hourly?day=YYYY-MM-DD`
 - **THEN** the response SHALL include `day` and a `data` array with up to 24 hourly buckets in UTC
 - **AND** each bucket SHALL include `total_tokens` (and related token fields) with bigints encoded as strings
 
@@ -522,7 +522,7 @@ The system SHALL provide a monthly usage endpoint that returns the most recent 2
 
 #### Scenario: User requests recent 24 months
 - **GIVEN** a signed-in user with a valid `user_jwt`
-- **WHEN** the user calls `GET /functions/vibescore-usage-monthly?months=24&to=YYYY-MM-DD`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-monthly?months=24&to=YYYY-MM-DD`
 - **THEN** the response SHALL include `from`, `to`, `months=24`, and a `data` array keyed by `month` (`YYYY-MM`)
 - **AND** each month SHALL include `total_tokens` (and related token fields) with bigints encoded as strings
 
@@ -549,7 +549,7 @@ The system SHALL validate user JWTs using the project anon key so that user-auth
 
 #### Scenario: Valid user token returns usage data
 - **GIVEN** a valid user JWT
-- **WHEN** the user calls `GET /functions/vibescore-usage-summary`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-summary`
 - **THEN** the response SHALL be `200` with a JSON payload
 
 ### Requirement: Ingest handles duplicate-heavy batches efficiently
@@ -557,7 +557,7 @@ The system SHALL ingest batches idempotently using a bulk write that ignores dup
 
 #### Scenario: Duplicate replay succeeds without errors
 - **GIVEN** a batch containing duplicate `event_id` values
-- **WHEN** the client calls `POST /functions/vibescore-ingest` with up to 500 events
+- **WHEN** the client calls `POST /functions/vibeusage-ingest` with up to 500 events
 - **THEN** the response SHALL be `200` with `inserted` and `skipped` counts
 - **AND** the ingest path SHALL NOT fail due to duplicate conflicts
 
@@ -672,13 +672,13 @@ The system MUST return complete aggregates even when `tz`/`tz_offset_minutes` ar
 
 #### Scenario: Non-UTC request returns complete UTC aggregate (Phase 1)
 - **GIVEN** a user provides `tz=America/Los_Angeles`
-- **WHEN** the user calls `GET /functions/vibescore-usage-daily`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-daily`
 - **THEN** the response SHALL be computed from the full event set
 - **AND** the result SHALL match the UTC aggregate for the same `from/to`
 
 #### Scenario: Summary matches daily rollup (Phase 1)
 - **GIVEN** the same `from/to` inputs
-- **WHEN** the user calls `GET /functions/vibescore-usage-summary` and `GET /functions/vibescore-usage-daily`
+- **WHEN** the user calls `GET /functions/vibeusage-usage-summary` and `GET /functions/vibeusage-usage-daily`
 - **THEN** the summary totals SHALL equal the sum of daily rows
 
 ### Requirement: Dashboard GPU spike investigation is reproducible
@@ -704,13 +704,13 @@ The dashboard SHALL adapt probe cadence based on backend health, using longer in
 The dashboard SHALL prefer calling edge functions under `/functions` and SHALL fall back to `/api/functions` when the preferred path returns HTTP 404, limited to idempotent GET requests.
 
 #### Scenario: 404 fallback for usage summary
-- **WHEN** the dashboard calls `GET /functions/vibescore-usage-summary`
+- **WHEN** the dashboard calls `GET /functions/vibeusage-usage-summary`
 - **AND** the gateway responds with HTTP 404
-- **THEN** the dashboard SHALL retry `GET /api/functions/vibescore-usage-summary`
+- **THEN** the dashboard SHALL retry `GET /api/functions/vibeusage-usage-summary`
 - **AND** use the response if the legacy path succeeds
 
 #### Scenario: Unauthorized does not fallback
-- **WHEN** the dashboard calls `GET /functions/vibescore-usage-summary`
+- **WHEN** the dashboard calls `GET /functions/vibeusage-usage-summary`
 - **AND** the gateway responds with HTTP 401
 - **THEN** the dashboard SHALL NOT retry `/api/functions/...`
 
@@ -735,7 +735,7 @@ When ingesting with service-role credentials, the system MUST avoid a pre-read o
 The system SHALL apply the requested `limit` when querying the leaderboard view in the non-snapshot fallback path, so only the top N rows are fetched.
 
 #### Scenario: Limit enforced at query
-- **WHEN** a user requests `GET /functions/vibescore-leaderboard?limit=20`
+- **WHEN** a user requests `GET /functions/vibeusage-leaderboard?limit=20`
 - **THEN** the backend SHALL query only the top 20 leaderboard rows
 - **AND** the response payload SHALL remain unchanged
 
@@ -769,7 +769,7 @@ The UI SHALL render the Matrix rain animation with a capped update rate and redu
 - **THEN** steady-state GPU usage SHALL remain `<= 2%` on average
 
 ### Requirement: Hourly usage aggregation prefers DB-side grouping
-The system SHALL attempt database-side hourly aggregation for `GET /functions/vibescore-usage-hourly` when the request uses UTC time, and SHALL fall back to row-level aggregation if the database aggregation is unavailable.
+The system SHALL attempt database-side hourly aggregation for `GET /functions/vibeusage-usage-hourly` when the request uses UTC time, and SHALL fall back to row-level aggregation if the database aggregation is unavailable.
 
 #### Scenario: DB aggregation succeeds
 - **WHEN** a signed-in user requests hourly usage in UTC
@@ -781,7 +781,7 @@ The system SHALL attempt database-side hourly aggregation for `GET /functions/vi
 - **THEN** the endpoint SHALL fall back to the legacy aggregation path without changing response fields
 
 ### Requirement: Monthly usage aggregation prefers DB-side grouping
-The system SHALL attempt database-side monthly aggregation for `GET /functions/vibescore-usage-monthly` when the request uses UTC time, and SHALL fall back to row-level aggregation if the database aggregation is unavailable.
+The system SHALL attempt database-side monthly aggregation for `GET /functions/vibeusage-usage-monthly` when the request uses UTC time, and SHALL fall back to row-level aggregation if the database aggregation is unavailable.
 
 #### Scenario: DB aggregation succeeds
 - **WHEN** a signed-in user requests monthly usage in UTC
@@ -809,25 +809,25 @@ The system MUST prefer rollup aggregation for `usage-summary` and MUST fall back
 - **THEN** the endpoint SHALL fall back to hourly aggregation without changing response fields
 
 ### Requirement: Usage day-range endpoints enforce maximum range
-The system SHALL reject usage requests that exceed a maximum day range for `GET /functions/vibescore-usage-summary`, `GET /functions/vibescore-usage-daily`, and `GET /functions/vibescore-usage-model-breakdown`. The maximum day range SHALL default to 800 days and be configurable via `VIBESCORE_USAGE_MAX_DAYS`.
+The system SHALL reject usage requests that exceed a maximum day range for `GET /functions/vibeusage-usage-summary`, `GET /functions/vibeusage-usage-daily`, and `GET /functions/vibeusage-usage-model-breakdown`. The maximum day range SHALL default to 800 days and be configurable via `VIBESCORE_USAGE_MAX_DAYS`.
 
 #### Scenario: 24-month window succeeds by default
-- **WHEN** a client calls `GET /functions/vibescore-usage-summary?from=2024-02-01&to=2026-01-01`
+- **WHEN** a client calls `GET /functions/vibeusage-usage-summary?from=2024-02-01&to=2026-01-01`
 - **THEN** the endpoint SHALL respond with `200`
 - **AND** the response SHALL follow the existing contract
 
 #### Scenario: Oversized range is rejected
-- **WHEN** a client calls `GET /functions/vibescore-usage-summary?from=2023-01-01&to=2026-01-01`
+- **WHEN** a client calls `GET /functions/vibeusage-usage-summary?from=2023-01-01&to=2026-01-01`
 - **THEN** the endpoint SHALL respond with `400`
 - **AND** the response SHALL include the maximum allowed day range
 
 #### Scenario: Env override enforces smaller cap
 - **GIVEN** `VIBESCORE_USAGE_MAX_DAYS=30`
-- **WHEN** a client calls `GET /functions/vibescore-usage-daily?from=2025-01-01&to=2025-02-15`
+- **WHEN** a client calls `GET /functions/vibeusage-usage-daily?from=2025-01-01&to=2025-02-15`
 - **THEN** the endpoint SHALL respond with `400`
 
 ### Requirement: Dashboard deduplicates usage-daily requests
-The dashboard MUST avoid issuing redundant `GET /functions/vibescore-usage-daily` calls for the same `from/to/tz` window within a single refresh cycle.
+The dashboard MUST avoid issuing redundant `GET /functions/vibeusage-usage-daily` calls for the same `from/to/tz` window within a single refresh cycle.
 
 #### Scenario: Week period reuses daily rows
 - **GIVEN** `period=week`
@@ -836,7 +836,7 @@ The dashboard MUST avoid issuing redundant `GET /functions/vibescore-usage-daily
 - **AND** the trend chart SHALL reuse the daily rows already fetched
 
 ### Requirement: Usage daily returns backend summary
-`GET /functions/vibescore-usage-daily` SHALL include a backend-computed `summary` object so the dashboard does not compute totals locally.
+`GET /functions/vibeusage-usage-daily` SHALL include a backend-computed `summary` object so the dashboard does not compute totals locally.
 
 #### Scenario: Daily response includes summary
 - **WHEN** a user requests usage daily for any range
@@ -855,7 +855,7 @@ When daily rows are already fetched (i.e., `period!=total`), the dashboard MUST 
 The CLI SHALL expose sufficient diagnostics to determine whether auto sync is functioning, degraded, or failing.
 
 #### Scenario: User validates auto sync health
-- **WHEN** a user runs `npx @vibescore/tracker status --diagnostics`
+- **WHEN** a user runs `npx vibeusage status --diagnostics`
 - **THEN** the output SHALL include the latest notify timestamp, last notify-triggered sync timestamp, queue pending bytes, upload throttle state, and any scheduled auto retry state
 
 ### Requirement: Usage endpoints accept dashboard timezone
@@ -863,7 +863,7 @@ The system SHALL allow the dashboard to request usage aggregates in a specified 
 
 #### Scenario: Dashboard requests local daily aggregates
 - **GIVEN** a signed-in user
-- **WHEN** the dashboard calls `GET /functions/vibescore-usage-daily?from=YYYY-MM-DD&to=YYYY-MM-DD&tz=America/Los_Angeles`
+- **WHEN** the dashboard calls `GET /functions/vibeusage-usage-daily?from=YYYY-MM-DD&to=YYYY-MM-DD&tz=America/Los_Angeles`
 - **THEN** the response `day` keys SHALL align to the requested local calendar dates
 - **AND** missing local days SHALL be represented as zero activity
 
@@ -871,7 +871,7 @@ The system SHALL allow the dashboard to request usage aggregates in a specified 
 The system SHALL return `total_cost_usd` in the usage summary response, computed from token totals using a pricing profile. The computation MUST avoid double-counting cached input and reasoning output tokens by treating them as subcategories of input and output, respectively. The response SHALL include pricing metadata indicating the model, pricing mode, and rates used.
 
 #### Scenario: Summary response includes cost and pricing basis
-- **WHEN** a user requests `GET /functions/vibescore-usage-summary` for a date range
+- **WHEN** a user requests `GET /functions/vibeusage-usage-summary` for a date range
 - **THEN** the response SHALL include `totals.total_cost_usd` as a string
 - **AND** the response SHALL include pricing metadata (`model`, `pricing_mode`, `rates`)
 - **AND** cached input tokens SHALL be billed at cached rates without being billed again as full input tokens
@@ -885,22 +885,22 @@ The dashboard SHALL display usage cost only in the total summary for day/week/mo
 - **AND** daily or monthly rows SHALL NOT show cost values
 
 ### Requirement: Spec compliance evidence map
-The project SHALL maintain a requirement-to-evidence map for the `vibescore-tracker` capability, listing the implementation location(s) and the verification step(s) for each requirement.
+The project SHALL maintain a requirement-to-evidence map for the `vibeusage-tracker` capability, listing the implementation location(s) and the verification step(s) for each requirement.
 
 #### Scenario: Evidence map is available
-- **GIVEN** a requirement exists in the `vibescore-tracker` spec
+- **GIVEN** a requirement exists in the `vibeusage-tracker` spec
 - **WHEN** a reviewer inspects the compliance record
 - **THEN** the record SHALL list the corresponding code location(s) and a repeatable verification step
 
 ### Requirement: Landing page serves static social metadata
-The dashboard landing page HTML SHALL include Open Graph and Twitter card metadata in the initial HTML response, without requiring client-side JavaScript execution. The metadata values SHALL be sourced from the copy registry `landing.meta.*`, and `og:url` SHALL be `https://www.vibescore.space`.
+The dashboard landing page HTML SHALL include Open Graph and Twitter card metadata in the initial HTML response, without requiring client-side JavaScript execution. The metadata values SHALL be sourced from the copy registry `landing.meta.*`, and `og:url` SHALL be `https://www.vibeusage.cc`.
 
 #### Scenario: Crawler reads static meta tags
 - **GIVEN** the dashboard is built via `npm --prefix dashboard run build`
 - **WHEN** a crawler fetches `dashboard/dist/index.html`
 - **THEN** the HTML SHALL include `meta` tags for `description`, `og:title`, `og:description`, `og:image`, `og:site_name`, `og:type`, `og:url`, `twitter:card`, `twitter:title`, `twitter:description`, `twitter:image`
 - **AND** the `content` values SHALL match the copy registry `landing.meta.*` entries
-- **AND** `og:url` SHALL equal `https://www.vibescore.space`
+- **AND** `og:url` SHALL equal `https://www.vibeusage.cc`
 
 ### Requirement: Dashboard landing page Lighthouse performance (desktop)
 The dashboard landing page at `http://localhost:5173/` SHALL achieve a Lighthouse Performance score of at least 95 on desktop, measured as the median of three runs using the default Lighthouse desktop preset.
@@ -963,7 +963,7 @@ The system SHALL compute leaderboard rankings from a precomputed snapshot that i
 
 #### Scenario: Leaderboard reads from latest snapshot
 - **GIVEN** a snapshot exists for `period=week` with `generated_at`
-- **WHEN** a signed-in user calls `GET /functions/vibescore-leaderboard?period=week`
+- **WHEN** a signed-in user calls `GET /functions/vibeusage-leaderboard?period=week`
 - **THEN** the response SHALL reflect the latest snapshot totals
 - **AND** the response SHALL include the snapshot `generated_at`
 
@@ -972,7 +972,7 @@ The system SHALL expose a refresh endpoint that rebuilds the current UTC leaderb
 
 #### Scenario: Automation refreshes leaderboard snapshots
 - **GIVEN** a valid service-role or project-admin bearer token
-- **WHEN** the caller sends `POST /functions/vibescore-leaderboard-refresh`
+- **WHEN** the caller sends `POST /functions/vibeusage-leaderboard-refresh`
 - **THEN** the snapshots for `day|week|month|total` SHALL be regenerated
 - **AND** the response SHALL include the refresh `generated_at` timestamp
 
@@ -1002,11 +1002,11 @@ The system SHALL include `source` in the ingest deduplication key for half-hour 
 Usage query endpoints SHALL accept an optional `source` filter. When omitted, the response SHALL aggregate across all sources to preserve current behavior.
 
 #### Scenario: Query without source
-- **WHEN** a user calls `GET /functions/vibescore-usage-daily` without `source`
+- **WHEN** a user calls `GET /functions/vibeusage-usage-daily` without `source`
 - **THEN** the response SHALL include totals aggregated across all sources
 
 #### Scenario: Query with source
-- **WHEN** a user calls `GET /functions/vibescore-usage-daily?source=every-code`
+- **WHEN** a user calls `GET /functions/vibeusage-usage-daily?source=every-code`
 - **THEN** the response SHALL include only rows from `source = "every-code"`
 
 ### Requirement: Pricing model aliases are supported
@@ -1037,6 +1037,6 @@ The pricing sync job SHALL generate alias rows for usage models that do not matc
 The system SHALL provide a dry-run mode for `init` that reports planned changes without modifying local files.
 
 #### Scenario: Dry-run makes no changes
-- **GIVEN** a user runs `npx --yes @vibescore/tracker init --dry-run`
+- **GIVEN** a user runs `npx --yes vibeusage init --dry-run`
 - **THEN** the CLI SHALL NOT write to local config or install hooks
 - **AND** the output SHALL indicate a preview-only run

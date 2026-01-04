@@ -9,7 +9,7 @@ main().catch((err) => {
 });
 
 async function main() {
-  const fn = require('../../insforge-functions/vibescore-leaderboard-settings');
+  const fn = require('../../insforge-functions/vibeusage-leaderboard-settings');
 
   const userId = '11111111-2222-3333-4444-555555555555';
   const userJwt = 'user_jwt_test';
@@ -97,7 +97,7 @@ async function main() {
 }
 
 async function callSettings(fn, { userJwt, leaderboardPublic }) {
-  const req = new Request('http://localhost/functions/vibescore-leaderboard-settings', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({ leaderboard_public: leaderboardPublic })

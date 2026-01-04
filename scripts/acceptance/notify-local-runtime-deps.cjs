@@ -5,7 +5,7 @@ const { spawnSync } = require('node:child_process');
 
 async function main() {
   const repoRoot = path.resolve(__dirname, '..', '..');
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-accept-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-accept-'));
   const env = {
     ...process.env,
     HOME: tmpRoot,
@@ -26,7 +26,7 @@ async function main() {
 
   const depPath = path.join(
     tmpRoot,
-    '.vibescore',
+    '.vibeusage',
     'tracker',
     'app',
     'node_modules',

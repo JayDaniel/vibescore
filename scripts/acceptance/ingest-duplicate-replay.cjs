@@ -25,9 +25,9 @@ async function main() {
   const { handler, calls } = buildFetchStub();
   global.fetch = handler;
 
-  const ingest = require('../../insforge-src/functions/vibescore-ingest.js');
+  const ingest = require('../../insforge-src/functions/vibeusage-ingest.js');
   const hourly = buildBuckets();
-  const req = new Request('http://local/functions/vibescore-ingest', {
+  const req = new Request('http://local/functions/vibeusage-ingest', {
     method: 'POST',
     headers: {
       Authorization: 'Bearer device-token',

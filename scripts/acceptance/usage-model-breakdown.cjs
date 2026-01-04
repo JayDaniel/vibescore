@@ -113,10 +113,10 @@ async function callEndpoint({ rows, query }) {
 
   global.createClient = () => createClientStub(rows);
 
-  const breakdown = require('../../insforge-src/functions/vibescore-usage-model-breakdown.js');
+  const breakdown = require('../../insforge-src/functions/vibeusage-usage-model-breakdown.js');
 
   const res = await breakdown(
-    new Request(`http://local/functions/vibescore-usage-model-breakdown?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-model-breakdown?${query}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

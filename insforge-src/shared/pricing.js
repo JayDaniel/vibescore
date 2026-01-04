@@ -54,9 +54,13 @@ function normalizeModelValue(value) {
 }
 
 function getPricingDefaults() {
+  const primaryModel = normalizeModelValue(getEnvValue('VIBEUSAGE_PRICING_MODEL'));
+  const legacyModel = normalizeModelValue(getEnvValue('VIBESCORE_PRICING_MODEL'));
+  const primarySource = normalizeSource(getEnvValue('VIBEUSAGE_PRICING_SOURCE'));
+  const legacySource = normalizeSource(getEnvValue('VIBESCORE_PRICING_SOURCE'));
   return {
-    model: normalizeModelValue(getEnvValue('VIBESCORE_PRICING_MODEL')) || DEFAULT_PROFILE.model,
-    source: normalizeSource(getEnvValue('VIBESCORE_PRICING_SOURCE')) || DEFAULT_PROFILE.source
+    model: primaryModel || legacyModel || DEFAULT_PROFILE.model,
+    source: primarySource || legacySource || DEFAULT_PROFILE.source
   };
 }
 
@@ -242,5 +246,6 @@ module.exports = {
   computeUsageCost,
   formatUsdFromMicros,
   getDefaultPricingProfile,
+  _getPricingDefaults: getPricingDefaults,
   resolvePricingProfile
 };

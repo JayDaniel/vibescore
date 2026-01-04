@@ -1,4 +1,4 @@
-# VibeScore Tracker（Codex CLI Token Usage）
+# VibeUsage Tracker（Codex CLI Token Usage）
 
 ## 0. 一句话简介
 
@@ -50,13 +50,13 @@
 
 ### 5.1 客户端本地状态（Source of truth）
 
-根目录：`~/.vibescore/`
+根目录：`~/.vibeusage/`
 
-- `~/.vibescore/tracker/config.json`：`baseUrl`、`deviceToken`、`deviceId`、`installedAt`
-- `~/.vibescore/tracker/cursors.json`：解析游标（按文件）+ 上次 totals（用于 totals 差分）
-- `~/.vibescore/tracker/queue.jsonl`：待上传半小时聚合桶（append-only）
-- `~/.vibescore/tracker/queue.state.json`：已上传 offset（用于幂等、断点续传）
-- `~/.vibescore/bin/notify.cjs`：notify handler（依赖 Node built-ins；快速返回）
+- `~/.vibeusage/tracker/config.json`：`baseUrl`、`deviceToken`、`deviceId`、`installedAt`
+- `~/.vibeusage/tracker/cursors.json`：解析游标（按文件）+ 上次 totals（用于 totals 差分）
+- `~/.vibeusage/tracker/queue.jsonl`：待上传半小时聚合桶（append-only）
+- `~/.vibeusage/tracker/queue.state.json`：已上传 offset（用于幂等、断点续传）
+- `~/.vibeusage/bin/notify.cjs`：notify handler（依赖 Node built-ins；快速返回）
 
 ### 5.2 半小时桶模型（白名单字段）
 
@@ -75,27 +75,27 @@
 - Edge Functions 源码在 `insforge-src/`；部署产物在 `insforge-functions/`（单文件、生成物）
   - 修改后端逻辑：改 `insforge-src/` → 运行 `npm run build:insforge` → 用 `insforge2 update-function` 部署
 
-- `POST /functions/vibescore-device-token-issue`
+- `POST /functions/vibeusage-device-token-issue`
   - Auth：`Authorization: Bearer <user_jwt>`（或 admin bootstrap：Bearer `<service_role_key>` + body `user_id`）
   - In：`{ device_name?: string, platform?: string }`
   - Out：`{ device_id: string, token: string, created_at: string }`
-- `POST /functions/vibescore-ingest`
+- `POST /functions/vibeusage-ingest`
   - Auth：`Authorization: Bearer <device_token>`
   - In：`{ hourly: HalfHourBucket[] }` 或 `HalfHourBucket[]`
   - Out：`{ success: true, inserted: number, skipped: number }`
-- `GET /functions/vibescore-usage-daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /functions/vibeusage-usage-daily?from=YYYY-MM-DD&to=YYYY-MM-DD`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：`{ from, to, data: [{ day, total_tokens, ... }] }`
-- `GET /functions/vibescore-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
+- `GET /functions/vibeusage-usage-summary?from=YYYY-MM-DD&to=YYYY-MM-DD`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：`{ from, to, days, totals: { ... } }`（bigint 以 string 返回）
-- `GET /functions/vibescore-usage-heatmap?weeks=52&to=YYYY-MM-DD&week_starts_on=sun|mon`
+- `GET /functions/vibeusage-usage-heatmap?weeks=52&to=YYYY-MM-DD&week_starts_on=sun|mon`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：heatmap grid（详见 `BACKEND_API.md`）
-- `GET /functions/vibescore-leaderboard?period=day|week|month|total&limit=20`
+- `GET /functions/vibeusage-leaderboard?period=day|week|month|total&limit=20`
   - Auth：`Authorization: Bearer <user_jwt>`
   - Out：`{ period, from, to, entries, me }`（详见 `BACKEND_API.md`）
-- `POST /functions/vibescore-leaderboard-settings`
+- `POST /functions/vibeusage-leaderboard-settings`
   - Auth：`Authorization: Bearer <user_jwt>`
   - In：`{ leaderboard_public: boolean }`
   - Out：`{ leaderboard_public: boolean, updated_at: string }`
@@ -145,10 +145,10 @@
 ### 7.1 目录与命名
 
 - `openspec/specs/`：稳定规格（“我们要做什么、边界与约束是什么”）
-  - 本仓库当前采用 **一文件一能力**：`openspec/specs/<capability>.md`（例如 `vibescore-tracker.md`）
+- 本仓库当前采用 **一文件一能力**：`openspec/specs/<capability>.md`（例如 `vibeusage-tracker.md`）
 - `openspec/changes/<id>/`：具体变更执行（任务拆分、进度与证据）
 
-变更 ID 命名规则：`YYYY-MM-DD-<slug>`（例如 `2025-12-17-vibescore-tracker`）。
+变更 ID 命名规则：`YYYY-MM-DD-<slug>`（例如 `2025-12-17-vibeusage-tracker`）。
 
 补充约定：
 
@@ -159,7 +159,7 @@
 
 - 需求用规范措辞表达（必要时可用英文关键词）：`SHALL` / `MUST` / `MUST NOT` / `SHOULD`
 - 每个关键需求至少给出一个可执行的场景（`WHEN/THEN`），并能落到验证命令或脚本
-- 文档中出现的命令、路径、环境变量、标识符一律用反引号包裹（例如 `tracker sync --auto`、`~/.vibescore/tracker/queue.jsonl`）
+- 文档中出现的命令、路径、环境变量、标识符一律用反引号包裹（例如 `tracker sync --auto`、`~/.vibeusage/tracker/queue.jsonl`）
 
 ### 7.3 变更流程（提案 → 实现 → 归档）
 

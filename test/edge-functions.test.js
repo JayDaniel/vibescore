@@ -74,6 +74,44 @@ function createServiceDbMock() {
   };
 }
 
+function createQueryMock({ rows = [], onFilter } = {}) {
+  const record = (entry) => {
+    if (typeof onFilter === 'function') onFilter(entry);
+  };
+
+  const query = {
+    select: () => query,
+    eq: (col, value) => {
+      record({ op: 'eq', col, value });
+      return query;
+    },
+    neq: (col, value) => {
+      record({ op: 'neq', col, value });
+      return query;
+    },
+    gte: (col, value) => {
+      record({ op: 'gte', col, value });
+      return query;
+    },
+    lt: (col, value) => {
+      record({ op: 'lt', col, value });
+      return query;
+    },
+    lte: (col, value) => {
+      record({ op: 'lte', col, value });
+      return query;
+    },
+    order: (col, opts) => {
+      record({ op: 'order', col, opts });
+      return query;
+    },
+    range: async () => ({ data: rows, error: null }),
+    limit: async () => ({ data: rows.slice(0, 1), error: null })
+  };
+
+  return query;
+}
+
 function createEntitlementsDbMock(options = {}) {
   const inserts = [];
   const rows = new Map();
@@ -270,13 +308,13 @@ afterEach(() => {
   else globalThis.fetch = ORIGINAL_FETCH;
 });
 
-test('vibescore-device-token-issue works without serviceRoleKey (user mode)', async () => {
+test('vibeusage-device-token-issue works without serviceRoleKey (user mode)', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
   });
 
-  const fn = require('../insforge-functions/vibescore-device-token-issue');
+  const fn = require('../insforge-functions/vibeusage-device-token-issue');
 
   const calls = [];
   const db = createServiceDbMock();
@@ -298,7 +336,7 @@ test('vibescore-device-token-issue works without serviceRoleKey (user mode)', as
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-device-token-issue', {
+  const req = new Request('http://localhost/functions/vibeusage-device-token-issue', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({ device_name: 'test-mac', platform: 'macos' })
@@ -321,8 +359,8 @@ test('vibescore-device-token-issue works without serviceRoleKey (user mode)', as
   assert.ok(tokenInsert, 'token insert not performed');
 });
 
-test('vibescore-device-token-issue admin mode skips user lookup', async () => {
-  const fn = require('../insforge-functions/vibescore-device-token-issue');
+test('vibeusage-device-token-issue admin mode skips user lookup', async () => {
+  const fn = require('../insforge-functions/vibeusage-device-token-issue');
 
   const calls = [];
   const service = createServiceDbMock();
@@ -336,7 +374,7 @@ test('vibescore-device-token-issue admin mode skips user lookup', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-device-token-issue', {
+  const req = new Request('http://localhost/functions/vibeusage-device-token-issue', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({ user_id: adminUserId, device_name: 'admin-mac', platform: 'macos' })
@@ -352,8 +390,8 @@ test('vibescore-device-token-issue admin mode skips user lookup', async () => {
   assert.equal(deviceInsert.rows?.[0]?.user_id, adminUserId);
 });
 
-test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hourly aggregates', async () => {
-  const fn = require('../insforge-functions/vibescore-ingest');
+test('vibeusage-ingest uses serviceRoleKey as edgeFunctionToken and ingests hourly aggregates', async () => {
+  const fn = require('../insforge-functions/vibeusage-ingest');
 
   const calls = [];
   const fetchCalls = [];
@@ -418,7 +456,7 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
     total_tokens: 3
   };
 
-  const req = new Request('http://localhost/functions/vibescore-ingest', {
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({ hourly: [bucket, bucket] })
@@ -453,8 +491,8 @@ test('vibescore-ingest uses serviceRoleKey as edgeFunctionToken and ingests hour
   assert.equal(serviceClientCall.anonKey, ANON_KEY);
 });
 
-test('vibescore-ingest accepts wrapped payload with data.hourly', async () => {
-  const fn = require('../insforge-functions/vibescore-ingest');
+test('vibeusage-ingest accepts wrapped payload with data.hourly', async () => {
+  const fn = require('../insforge-functions/vibeusage-ingest');
 
   const calls = [];
   const fetchCalls = [];
@@ -519,7 +557,7 @@ test('vibescore-ingest accepts wrapped payload with data.hourly', async () => {
     total_tokens: 3
   };
 
-  const req = new Request('http://localhost/functions/vibescore-ingest', {
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({ data: { hourly: [bucket] } })
@@ -541,13 +579,13 @@ test('vibescore-ingest accepts wrapped payload with data.hourly', async () => {
   assert.ok(serviceClientCall, 'service client not created');
 });
 
-test('vibescore-ingest works without serviceRoleKey via anonKey records API', async () => {
+test('vibeusage-ingest works without serviceRoleKey via anonKey records API', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
   });
 
-  const fn = require('../insforge-functions/vibescore-ingest');
+  const fn = require('../insforge-functions/vibeusage-ingest');
 
   const tokenRow = {
     id: 'token-id',
@@ -582,7 +620,7 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
     total_tokens: 3
   };
 
-  const req = new Request('http://localhost/functions/vibescore-ingest', {
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({ hourly: [bucket] })
@@ -613,8 +651,8 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(getCall.init?.method, 'GET');
   assert.equal(getCall.init?.headers?.apikey, ANON_KEY);
   assert.equal(getCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
-  assert.equal(typeof getCall.init?.headers?.['x-vibescore-device-token-hash'], 'string');
-  assert.equal(getCall.init?.headers?.['x-vibescore-device-token-hash'].length, 64);
+  assert.equal(typeof getCall.init?.headers?.['x-vibeusage-device-token-hash'], 'string');
+  assert.equal(getCall.init?.headers?.['x-vibeusage-device-token-hash'].length, 64);
 
   assert.ok(postCall, 'hourly upsert call not found');
   assert.ok(String(postCall.url).includes('/api/database/records/vibescore_tracker_hourly'));
@@ -629,7 +667,7 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(touchCall.init?.method, 'POST');
   assert.equal(touchCall.init?.headers?.apikey, ANON_KEY);
   assert.equal(touchCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
-  assert.equal(typeof touchCall.init?.headers?.['x-vibescore-device-token-hash'], 'string');
+  assert.equal(typeof touchCall.init?.headers?.['x-vibeusage-device-token-hash'], 'string');
 
   assert.ok(metricsCall, 'ingest batch metrics call not found');
   assert.ok(String(metricsCall.url).includes('/api/database/records/vibescore_tracker_ingest_batches'));
@@ -638,16 +676,16 @@ test('vibescore-ingest works without serviceRoleKey via anonKey records API', as
   assert.equal(metricsCall.init?.headers?.Authorization, `Bearer ${ANON_KEY}`);
 });
 
-test('vibescore-ingest returns 429 when concurrency limit exceeded', async () => {
+test('vibeusage-ingest returns 429 when concurrency limit exceeded', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY,
-    VIBESCORE_INGEST_MAX_INFLIGHT: '1',
-    VIBESCORE_INGEST_RETRY_AFTER_MS: '1000'
+    VIBEUSAGE_INGEST_MAX_INFLIGHT: '1',
+    VIBEUSAGE_INGEST_RETRY_AFTER_MS: '1000'
   });
 
-  delete require.cache[require.resolve('../insforge-functions/vibescore-ingest')];
-  const fn = require('../insforge-functions/vibescore-ingest');
+  delete require.cache[require.resolve('../insforge-functions/vibeusage-ingest')];
+  const fn = require('../insforge-functions/vibeusage-ingest');
 
   const tokenRow = {
     id: 'token-id',
@@ -703,7 +741,7 @@ test('vibescore-ingest returns 429 when concurrency limit exceeded', async () =>
   };
 
   const req = () =>
-    new Request('http://localhost/functions/vibescore-ingest', {
+    new Request('http://localhost/functions/vibeusage-ingest', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: 'Bearer device_token_test' },
       body: JSON.stringify({ hourly: [bucket] })
@@ -721,13 +759,13 @@ test('vibescore-ingest returns 429 when concurrency limit exceeded', async () =>
   assert.equal(res1.status, 200);
 });
 
-test('vibescore-ingest anonKey path errors when hourly upsert unsupported', async () => {
+test('vibeusage-ingest anonKey path errors when hourly upsert unsupported', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
   });
 
-  const fn = require('../insforge-functions/vibescore-ingest');
+  const fn = require('../insforge-functions/vibeusage-ingest');
 
   const tokenRow = {
     id: 'token-id',
@@ -763,7 +801,7 @@ test('vibescore-ingest anonKey path errors when hourly upsert unsupported', asyn
     total_tokens: 3
   };
 
-  const req = new Request('http://localhost/functions/vibescore-ingest', {
+  const req = new Request('http://localhost/functions/vibeusage-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${deviceToken}` },
     body: JSON.stringify({ hourly: [bucket] })
@@ -776,11 +814,13 @@ test('vibescore-ingest anonKey path errors when hourly upsert unsupported', asyn
   assert.deepEqual(data, { error: 'unknown on_conflict' });
 });
 
-test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-heatmap');
+test('vibeusage-usage-heatmap returns a week-aligned grid with derived fields', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-heatmap');
 
   const userId = '55555555-5555-5555-5555-555555555555';
   const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
 
   const rows = [
     { hour_start: '2025-12-10T00:00:00.000Z', total_tokens: '10' },
@@ -800,32 +840,15 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
         database: {
           from: (table) => {
             assert.equal(table, 'vibescore_tracker_hourly');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
             return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-12-07T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-19T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
+              select: () => query
             };
           }
         }
@@ -835,7 +858,7 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-heatmap?weeks=2&to=2025-12-18&week_starts_on=sun',
+    'http://localhost/functions/vibeusage-usage-heatmap?weeks=2&to=2025-12-18&week_starts_on=sun',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -845,6 +868,11 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
   const res = await fn(req);
   assert.equal(res.status, 200);
   const body = await res.json();
+
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-07T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-19T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start' && o.opts?.ascending === true));
 
   assert.equal(body.from, '2025-12-07');
   assert.equal(body.to, '2025-12-18');
@@ -871,11 +899,11 @@ test('vibescore-usage-heatmap returns a week-aligned grid with derived fields', 
   assert.deepEqual(cell1218, { day: '2025-12-18', value: '1000', level: 4 });
 });
 
-test('vibescore-usage-heatmap rejects invalid parameters', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-heatmap');
+test('vibeusage-usage-heatmap rejects invalid parameters', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-heatmap');
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-heatmap?weeks=105&to=2025-13-40&week_starts_on=wat',
+    'http://localhost/functions/vibeusage-usage-heatmap?weeks=105&to=2025-13-40&week_starts_on=wat',
     {
       method: 'GET',
       headers: { Authorization: 'Bearer user_jwt_test' }
@@ -886,13 +914,23 @@ test('vibescore-usage-heatmap rejects invalid parameters', async () => {
   assert.equal(res.status, 400);
 });
 
-test('vibescore-usage-daily applies optional source filter', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-daily');
+test('vibeusage-usage-daily applies optional source filter', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
 
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
-
+  const orders = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      total_tokens: '1',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -901,25 +939,14 @@ test('vibescore-usage-daily applies optional source filter', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
               }
-            };
+            });
             return { select: () => query };
           }
         }
@@ -929,7 +956,7 @@ test('vibescore-usage-daily applies optional source filter', async () => {
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-daily?from=2025-12-20&to=2025-12-21&source=every-code',
+    'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-21&source=every-code',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -940,15 +967,28 @@ test('vibescore-usage-daily applies optional source filter', async () => {
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'source' && f.value === 'every-code'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
 });
 
-test('vibescore-usage-daily applies optional model filter', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-daily');
+test('vibeusage-usage-daily applies optional model filter', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
 
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
-
+  const orders = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      total_tokens: '1',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
       return {
@@ -957,25 +997,14 @@ test('vibescore-usage-daily applies optional model filter', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
               }
-            };
+            });
             return { select: () => query };
           }
         }
@@ -985,7 +1014,7 @@ test('vibescore-usage-daily applies optional model filter', async () => {
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-daily?from=2025-12-20&to=2025-12-21&model=claude-3-5-sonnet',
+    'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-21&model=claude-3-5-sonnet',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -996,14 +1025,28 @@ test('vibescore-usage-daily applies optional model filter', async () => {
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'model' && f.value === 'claude-3-5-sonnet'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
 });
 
-test('vibescore-usage-daily treats empty source as missing', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-daily');
+test('vibeusage-usage-daily treats empty source as missing', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
 
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const orders = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      total_tokens: '1',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -1013,25 +1056,14 @@ test('vibescore-usage-daily treats empty source as missing', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async (col, opts) => {
-                filters.push({ op: 'order', col, opts });
-                return { data: [], error: null };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
               }
-            };
+            });
             return { select: () => query };
           }
         }
@@ -1041,7 +1073,7 @@ test('vibescore-usage-daily treats empty source as missing', async () => {
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-daily?from=2025-12-20&to=2025-12-21&source=',
+    'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-21&source=',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -1052,14 +1084,28 @@ test('vibescore-usage-daily treats empty source as missing', async () => {
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
   assert.ok(!filters.some((f) => f.op === 'eq' && f.col === 'source'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
 });
 
-test('vibescore-usage-daily excludes canary buckets by default', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-daily');
+test('vibeusage-usage-daily excludes canary buckets by default', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
 
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
   const filters = [];
+  const orders = [];
+  const rows = [
+    {
+      day: '2025-12-20',
+      total_tokens: '1',
+      input_tokens: '1',
+      cached_input_tokens: '0',
+      output_tokens: '0',
+      reasoning_output_tokens: '0'
+    }
+  ];
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === userJwt) {
@@ -1069,26 +1115,14 @@ test('vibescore-usage-daily excludes canary buckets by default', async () => {
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
-            const query = {
-              eq: (col, value) => {
-                filters.push({ op: 'eq', col, value });
-                return query;
-              },
-              neq: (col, value) => {
-                filters.push({ op: 'neq', col, value });
-                return query;
-              },
-              gte: (col, value) => {
-                filters.push({ op: 'gte', col, value });
-                return query;
-              },
-              lt: (col, value) => {
-                filters.push({ op: 'lt', col, value });
-                return query;
-              },
-              order: async () => ({ data: [], error: null })
-            };
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
             return { select: () => query };
           }
         }
@@ -1098,7 +1132,7 @@ test('vibescore-usage-daily excludes canary buckets by default', async () => {
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-daily?from=2025-12-20&to=2025-12-21',
+    'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-21',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -1109,13 +1143,18 @@ test('vibescore-usage-daily excludes canary buckets by default', async () => {
   assert.equal(res.status, 200);
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'source' && f.value === 'canary'));
   assert.ok(filters.some((f) => f.op === 'neq' && f.col === 'model' && f.value === 'canary'));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-20'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
 });
 
-test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-hourly');
+test('vibeusage-usage-hourly aggregates half-hour buckets into half-hour totals', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-hourly');
 
   const userId = '77777777-7777-7777-7777-777777777777';
   const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
 
   const rows = [
     {
@@ -1158,35 +1197,24 @@ test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals'
               select: (columns) => {
                 const isAggregate =
                   typeof columns === 'string' && columns.includes('sum(');
-                return {
-                  eq: (col, value) => {
-                    assert.equal(col, 'user_id');
-                    assert.equal(value, userId);
-                    return {
-                      gte: (gteCol, from) => {
-                        assert.equal(gteCol, 'hour_start');
-                        assert.equal(from, '2025-12-21T00:00:00.000Z');
-                        return {
-                          lt: (ltCol, to) => {
-                            assert.equal(ltCol, 'hour_start');
-                            assert.equal(to, '2025-12-22T00:00:00.000Z');
-                            return {
-                              order: async (orderCol, opts) => {
-                                assert.equal(opts?.ascending, true);
-                                if (isAggregate) {
-                                  assert.equal(orderCol, 'hour');
-                                  return { data: null, error: { message: 'not supported' } };
-                                }
-                                assert.equal(orderCol, 'hour_start');
-                                return { data: rows, error: null };
-                              }
-                            };
-                          }
-                        };
-                      }
-                    };
+                const result = isAggregate
+                  ? { data: null, error: { message: 'not supported' } }
+                  : { data: rows, error: null };
+                const query = createQueryMock({
+                  rows: Array.isArray(result.data) ? result.data : [],
+                  onFilter: (entry) => {
+                    if (entry.op === 'order') orders.push(entry);
+                    else filters.push(entry);
                   }
-                };
+                });
+                if (isAggregate) {
+                  query.order = (col, opts) => {
+                    orders.push({ op: 'order', col, opts });
+                    return result;
+                  };
+                }
+                query.range = async () => result;
+                return query;
               }
             };
           }
@@ -1196,7 +1224,7 @@ test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals'
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-usage-hourly?day=2025-12-21', {
+  const req = new Request('http://localhost/functions/vibeusage-usage-hourly?day=2025-12-21', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -1205,6 +1233,10 @@ test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals'
   assert.equal(res.status, 200);
 
   const body = await res.json();
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-12-21T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.opts?.ascending === true));
   assert.equal(body.day, '2025-12-21');
   assert.equal(body.data.length, 48);
   assert.equal(body.data[2].total_tokens, '12');
@@ -1213,11 +1245,13 @@ test('vibescore-usage-hourly aggregates half-hour buckets into half-hour totals'
   assert.equal(body.data[26].total_tokens, '5');
 });
 
-test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-monthly');
+test('vibeusage-usage-monthly aggregates hourly rows into months', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-monthly');
 
   const userId = '88888888-8888-8888-8888-888888888888';
   const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
 
   const rows = [
     {
@@ -1256,32 +1290,15 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
         database: {
           from: (table) => {
             assert.equal(table, 'vibescore_tracker_hourly');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
             return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-11-01T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-22T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
+              select: () => query
             };
           }
         }
@@ -1291,7 +1308,7 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-monthly?months=2&to=2025-12-21',
+    'http://localhost/functions/vibeusage-usage-monthly?months=2&to=2025-12-21',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -1302,6 +1319,10 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
   assert.equal(res.status, 200);
 
   const body = await res.json();
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'hour_start' && f.value === '2025-11-01T00:00:00.000Z'));
+  assert.ok(filters.some((f) => f.op === 'lt' && f.col === 'hour_start' && f.value === '2025-12-22T00:00:00.000Z'));
+  assert.ok(orders.some((o) => o.col === 'hour_start' && o.opts?.ascending === true));
   assert.equal(body.from, '2025-11-01');
   assert.equal(body.to, '2025-12-21');
   assert.equal(body.months, 2);
@@ -1312,15 +1333,17 @@ test('vibescore-usage-monthly aggregates hourly rows into months', async () => {
   assert.equal(body.data[1].total_tokens, '7');
 });
 
-test('vibescore-usage-summary returns total_cost_usd and pricing metadata', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-summary');
+test('vibeusage-usage-summary returns total_cost_usd and pricing metadata', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
 
   const userId = '99999999-9999-9999-9999-999999999999';
   const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      day: '2025-12-21',
       total_tokens: '1500000',
       input_tokens: '1000000',
       cached_input_tokens: '200000',
@@ -1338,33 +1361,16 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
             return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: (gteCol, from) => {
-                      assert.equal(gteCol, 'hour_start');
-                      assert.equal(from, '2025-12-21T00:00:00.000Z');
-                      return {
-                        lt: (ltCol, to) => {
-                          assert.equal(ltCol, 'hour_start');
-                          assert.equal(to, '2025-12-22T00:00:00.000Z');
-                          return {
-                            order: async (orderCol, opts) => {
-                              assert.equal(orderCol, 'hour_start');
-                              assert.equal(opts?.ascending, true);
-                              return { data: rows, error: null };
-                            }
-                          };
-                        }
-                      };
-                    }
-                  };
-                }
-              })
+              select: () => query
             };
           }
         }
@@ -1374,7 +1380,7 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+    'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -1385,6 +1391,10 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
   assert.equal(res.status, 200);
 
   const body = await res.json();
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
   assert.equal(body.from, '2025-12-21');
   assert.equal(body.to, '2025-12-21');
   assert.equal(body.totals.total_tokens, '1500000');
@@ -1394,16 +1404,18 @@ test('vibescore-usage-summary returns total_cost_usd and pricing metadata', asyn
   assert.equal(body.pricing.rates_per_million_usd.cached_input, '0.175000');
 });
 
-test('vibescore-usage-summary emits debug payload when requested', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-summary');
-  const prevThreshold = process.env.VIBESCORE_SLOW_QUERY_MS;
+test('vibeusage-usage-summary emits debug payload when requested', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
+  const prevThreshold = process.env.VIBEUSAGE_SLOW_QUERY_MS;
 
   const userId = '99999999-9999-9999-9999-999999999999';
   const userJwt = 'user_jwt_test';
+  const filters = [];
+  const orders = [];
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      day: '2025-12-21',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
@@ -1413,7 +1425,7 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
   ];
 
   try {
-    process.env.VIBESCORE_SLOW_QUERY_MS = '2000';
+    process.env.VIBEUSAGE_SLOW_QUERY_MS = '2000';
 
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
@@ -1423,19 +1435,18 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
           },
           database: {
             from: (table) => {
-              if (table !== 'vibescore_tracker_hourly') {
+              if (table !== 'vibescore_tracker_daily_rollup') {
                 throw new Error(`Unexpected table: ${table}`);
               }
+              const query = createQueryMock({
+                rows,
+                onFilter: (entry) => {
+                  if (entry.op === 'order') orders.push(entry);
+                  else filters.push(entry);
+                }
+              });
               return {
-                select: () => ({
-                  eq: () => ({
-                    gte: () => ({
-                      lt: () => ({
-                        order: async () => ({ data: rows, error: null })
-                      })
-                    })
-                  })
-                })
+                select: () => query
               };
             }
           }
@@ -1445,7 +1456,7 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
     };
 
     const req = new Request(
-      'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21&debug=1',
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21&debug=1',
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${userJwt}` }
@@ -1456,6 +1467,10 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
     assert.equal(res.status, 200);
 
     const payload = await res.json();
+    assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+    assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
+    assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+    assert.ok(orders.some((o) => o.col === 'day'));
     assert.ok(payload.debug);
     assert.ok(payload.debug.request_id && payload.debug.request_id.length > 0);
     assert.equal(payload.debug.status, 200);
@@ -1464,7 +1479,7 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
     assert.equal(typeof payload.debug.slow_query, 'boolean');
 
     const noDebugReq = new Request(
-      'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21',
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${userJwt}` }
@@ -1475,21 +1490,90 @@ test('vibescore-usage-summary emits debug payload when requested', async () => {
     const noDebugPayload = await noDebugRes.json();
     assert.equal(noDebugPayload.debug, undefined);
   } finally {
-    if (prevThreshold === undefined) delete process.env.VIBESCORE_SLOW_QUERY_MS;
-    else process.env.VIBESCORE_SLOW_QUERY_MS = prevThreshold;
+    if (prevThreshold === undefined) delete process.env.VIBEUSAGE_SLOW_QUERY_MS;
+    else process.env.VIBEUSAGE_SLOW_QUERY_MS = prevThreshold;
   }
 });
 
-test('vibescore-usage-summary uses auth lookup even with jwt payload', async () => {
-  const fn = require('../insforge-functions/vibescore-usage-summary');
+test('vibeusage-usage-summary logs vibeusage function name', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+  const rows = [
+    {
+      day: '2025-12-21',
+      total_tokens: '10',
+      input_tokens: '6',
+      cached_input_tokens: '2',
+      output_tokens: '4',
+      reasoning_output_tokens: '1'
+    }
+  ];
+  const logs = [];
+  const prevLog = console.log;
+
+  console.log = (message) => logs.push(message);
+
+  try {
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              assert.equal(table, 'vibescore_tracker_daily_rollup');
+              const query = createQueryMock({ rows });
+              return { select: () => query };
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const req = new Request(
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21',
+      {
+        method: 'GET',
+        headers: { Authorization: `Bearer ${userJwt}` }
+      }
+    );
+
+    const res = await fn(req);
+    assert.equal(res.status, 200);
+
+    const parsed = logs
+      .map((entry) => {
+        try {
+          return JSON.parse(entry);
+        } catch (_e) {
+          return null;
+        }
+      })
+      .filter(Boolean);
+    const responseLog = parsed.find((payload) => payload?.stage === 'response');
+    assert.ok(responseLog, 'expected response log payload');
+    assert.equal(responseLog.function, 'vibeusage-usage-summary');
+  } finally {
+    console.log = prevLog;
+  }
+});
+
+test('vibeusage-usage-summary uses auth lookup even with jwt payload', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
 
   const userId = '77777777-7777-7777-7777-777777777777';
   const payload = Buffer.from(JSON.stringify({ sub: userId, exp: 1893456000 })).toString('base64url');
   const userJwt = `header.${payload}.sig`;
+  const filters = [];
+  const orders = [];
 
   const rows = [
     {
-      hour_start: '2025-12-21T01:00:00.000Z',
+      day: '2025-12-21',
       total_tokens: '10',
       input_tokens: '6',
       cached_input_tokens: '2',
@@ -1512,21 +1596,16 @@ test('vibescore-usage-summary uses auth lookup even with jwt payload', async () 
         },
         database: {
           from: (table) => {
-            assert.equal(table, 'vibescore_tracker_hourly');
+            assert.equal(table, 'vibescore_tracker_daily_rollup');
+            const query = createQueryMock({
+              rows,
+              onFilter: (entry) => {
+                if (entry.op === 'order') orders.push(entry);
+                else filters.push(entry);
+              }
+            });
             return {
-              select: () => ({
-                eq: (col, value) => {
-                  assert.equal(col, 'user_id');
-                  assert.equal(value, userId);
-                  return {
-                    gte: () => ({
-                      lt: () => ({
-                        order: async () => ({ data: rows, error: null })
-                      })
-                    })
-                  };
-                }
-              })
+              select: () => query
             };
           }
         }
@@ -1536,7 +1615,7 @@ test('vibescore-usage-summary uses auth lookup even with jwt payload', async () 
   };
 
   const req = new Request(
-    'http://localhost/functions/vibescore-usage-summary?from=2025-12-21&to=2025-12-21',
+    'http://localhost/functions/vibeusage-usage-summary?from=2025-12-21&to=2025-12-21',
     {
       method: 'GET',
       headers: { Authorization: `Bearer ${userJwt}` }
@@ -1546,18 +1625,22 @@ test('vibescore-usage-summary uses auth lookup even with jwt payload', async () 
   const res = await fn(req);
   assert.equal(res.status, 200);
 
+  assert.ok(filters.some((f) => f.op === 'eq' && f.col === 'user_id' && f.value === userId));
+  assert.ok(filters.some((f) => f.op === 'gte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(filters.some((f) => f.op === 'lte' && f.col === 'day' && f.value === '2025-12-21'));
+  assert.ok(orders.some((o) => o.col === 'day'));
   assert.equal(authCalls, 1, 'expected auth.getCurrentUser to validate jwt payload');
 });
 
-test('vibescore-usage-summary rejects oversized ranges', { concurrency: 1 }, async () => {
-  const fn = require('../insforge-functions/vibescore-usage-summary');
-  const prevMaxDays = process.env.VIBESCORE_USAGE_MAX_DAYS;
+test('vibeusage-usage-summary rejects oversized ranges', { concurrency: 1 }, async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-summary');
+  const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
   const userId = '55555555-5555-5555-5555-555555555555';
   const userJwt = 'user_jwt_test';
   let dbTouched = false;
 
   try {
-    process.env.VIBESCORE_USAGE_MAX_DAYS = '30';
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -1576,7 +1659,7 @@ test('vibescore-usage-summary rejects oversized ranges', { concurrency: 1 }, asy
     };
 
     const req = new Request(
-      'http://localhost/functions/vibescore-usage-summary?from=2025-01-01&to=2025-02-15',
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-01-01&to=2025-02-15',
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${userJwt}` }
@@ -1589,32 +1672,32 @@ test('vibescore-usage-summary rejects oversized ranges', { concurrency: 1 }, asy
     assert.match(String(body.error || ''), /max/i);
     assert.equal(dbTouched, false);
   } finally {
-    if (prevMaxDays === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
-    else process.env.VIBESCORE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
   }
 });
 
 test('getUsageMaxDays defaults to 800 days', { concurrency: 1 }, () => {
   const { getUsageMaxDays } = require('../insforge-src/shared/date');
-  const prevMaxDays = process.env.VIBESCORE_USAGE_MAX_DAYS;
+  const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
   try {
-    delete process.env.VIBESCORE_USAGE_MAX_DAYS;
+    delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
     assert.equal(getUsageMaxDays(), 800);
   } finally {
-    if (prevMaxDays === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
-    else process.env.VIBESCORE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
   }
 });
 
-test('vibescore-usage-daily rejects oversized ranges', { concurrency: 1 }, async () => {
-  const fn = require('../insforge-functions/vibescore-usage-daily');
-  const prevMaxDays = process.env.VIBESCORE_USAGE_MAX_DAYS;
+test('vibeusage-usage-daily rejects oversized ranges', { concurrency: 1 }, async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
+  const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
   const userId = '55555555-5555-5555-5555-555555555555';
   const userJwt = 'user_jwt_test';
   let dbTouched = false;
 
   try {
-    process.env.VIBESCORE_USAGE_MAX_DAYS = '30';
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -1633,7 +1716,7 @@ test('vibescore-usage-daily rejects oversized ranges', { concurrency: 1 }, async
     };
 
     const req = new Request(
-      'http://localhost/functions/vibescore-usage-daily?from=2025-01-01&to=2025-02-15',
+      'http://localhost/functions/vibeusage-usage-daily?from=2025-01-01&to=2025-02-15',
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${userJwt}` }
@@ -1646,20 +1729,20 @@ test('vibescore-usage-daily rejects oversized ranges', { concurrency: 1 }, async
     assert.match(String(body.error || ''), /max/i);
     assert.equal(dbTouched, false);
   } finally {
-    if (prevMaxDays === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
-    else process.env.VIBESCORE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
   }
 });
 
-test('vibescore-usage-model-breakdown rejects oversized ranges', { concurrency: 1 }, async () => {
-  const fn = require('../insforge-functions/vibescore-usage-model-breakdown');
-  const prevMaxDays = process.env.VIBESCORE_USAGE_MAX_DAYS;
+test('vibeusage-usage-model-breakdown rejects oversized ranges', { concurrency: 1 }, async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-model-breakdown');
+  const prevMaxDays = process.env.VIBEUSAGE_USAGE_MAX_DAYS;
   const userId = '55555555-5555-5555-5555-555555555555';
   const userJwt = 'user_jwt_test';
   let dbTouched = false;
 
   try {
-    process.env.VIBESCORE_USAGE_MAX_DAYS = '30';
+    process.env.VIBEUSAGE_USAGE_MAX_DAYS = '30';
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -1678,7 +1761,7 @@ test('vibescore-usage-model-breakdown rejects oversized ranges', { concurrency: 
     };
 
     const req = new Request(
-      'http://localhost/functions/vibescore-usage-model-breakdown?from=2025-01-01&to=2025-02-15',
+      'http://localhost/functions/vibeusage-usage-model-breakdown?from=2025-01-01&to=2025-02-15',
       {
         method: 'GET',
         headers: { Authorization: `Bearer ${userJwt}` }
@@ -1691,18 +1774,18 @@ test('vibescore-usage-model-breakdown rejects oversized ranges', { concurrency: 
     assert.match(String(body.error || ''), /max/i);
     assert.equal(dbTouched, false);
   } finally {
-    if (prevMaxDays === undefined) delete process.env.VIBESCORE_USAGE_MAX_DAYS;
-    else process.env.VIBESCORE_USAGE_MAX_DAYS = prevMaxDays;
+    if (prevMaxDays === undefined) delete process.env.VIBEUSAGE_USAGE_MAX_DAYS;
+    else process.env.VIBEUSAGE_USAGE_MAX_DAYS = prevMaxDays;
   }
 });
 
-test('vibescore-leaderboard returns a week window and slices entries to limit', async () => {
+test('vibeusage-leaderboard returns a week window and slices entries to limit', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
   });
 
-  const fn = require('../insforge-functions/vibescore-leaderboard');
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
 
   const userId = '66666666-6666-6666-6666-666666666666';
   const userJwt = 'user_jwt_test';
@@ -1754,7 +1837,7 @@ test('vibescore-leaderboard returns a week window and slices entries to limit', 
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard?period=week&limit=1', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=week&limit=1', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -1784,13 +1867,13 @@ test('vibescore-leaderboard returns a week window and slices entries to limit', 
   assert.deepEqual(body.me, { rank: 2, total_tokens: '50' });
 });
 
-test('vibescore-leaderboard uses system earliest day for total window', async () => {
+test('vibeusage-leaderboard uses system earliest day for total window', async () => {
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
     ANON_KEY
   });
 
-  const fn = require('../insforge-functions/vibescore-leaderboard');
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
 
   const userId = '77777777-7777-7777-7777-777777777777';
   const userJwt = 'user_jwt_test';
@@ -1842,7 +1925,7 @@ test('vibescore-leaderboard uses system earliest day for total window', async ()
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard?period=total', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=total', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -1859,8 +1942,8 @@ test('vibescore-leaderboard uses system earliest day for total window', async ()
   assert.deepEqual(body.me, { rank: 1, total_tokens: '42' });
 });
 
-test('vibescore-leaderboard rejects invalid period', async () => {
-  const fn = require('../insforge-functions/vibescore-leaderboard');
+test('vibeusage-leaderboard rejects invalid period', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard');
 
   globalThis.createClient = (args) => {
     if (args && args.edgeFunctionToken === 'user_jwt_test') {
@@ -1878,7 +1961,7 @@ test('vibescore-leaderboard rejects invalid period', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard?period=year', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard?period=year', {
     method: 'GET',
     headers: { Authorization: 'Bearer user_jwt_test' }
   });
@@ -1887,8 +1970,8 @@ test('vibescore-leaderboard rejects invalid period', async () => {
   assert.equal(res.status, 400);
 });
 
-test('vibescore-leaderboard-settings inserts user setting row', async () => {
-  const fn = require('../insforge-functions/vibescore-leaderboard-settings');
+test('vibeusage-leaderboard-settings inserts user setting row', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
 
   const userId = '99999999-9999-9999-9999-999999999999';
   const userJwt = 'user_jwt_test';
@@ -1922,7 +2005,7 @@ test('vibescore-leaderboard-settings inserts user setting row', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard-settings', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({ leaderboard_public: true })
@@ -1943,8 +2026,8 @@ test('vibescore-leaderboard-settings inserts user setting row', async () => {
   assert.equal(typeof row.updated_at, 'string');
 });
 
-test('vibescore-leaderboard-settings updates existing row', async () => {
-  const fn = require('../insforge-functions/vibescore-leaderboard-settings');
+test('vibeusage-leaderboard-settings updates existing row', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
 
   const userId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const userJwt = 'user_jwt_test';
@@ -1980,7 +2063,7 @@ test('vibescore-leaderboard-settings updates existing row', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard-settings', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({ leaderboard_public: false })
@@ -2000,8 +2083,8 @@ test('vibescore-leaderboard-settings updates existing row', async () => {
   assert.equal(typeof updates[0].values.updated_at, 'string');
 });
 
-test('vibescore-leaderboard-settings rejects invalid body', async () => {
-  const fn = require('../insforge-functions/vibescore-leaderboard-settings');
+test('vibeusage-leaderboard-settings rejects invalid body', async () => {
+  const fn = require('../insforge-functions/vibeusage-leaderboard-settings');
 
   const userJwt = 'user_jwt_test';
 
@@ -2021,7 +2104,7 @@ test('vibescore-leaderboard-settings rejects invalid body', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-leaderboard-settings', {
+  const req = new Request('http://localhost/functions/vibeusage-leaderboard-settings', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({ leaderboard_public: 'yes' })
@@ -2031,8 +2114,8 @@ test('vibescore-leaderboard-settings rejects invalid body', async () => {
   assert.equal(res.status, 400);
 });
 
-test('vibescore-user-status returns pro.active for cutoff user', async () => {
-  const fn = require('../insforge-functions/vibescore-user-status');
+test('vibeusage-user-status returns pro.active for cutoff user', async () => {
+  const fn = require('../insforge-functions/vibeusage-user-status');
 
   const userId = '11111111-1111-1111-1111-111111111111';
   const userJwt = 'user_jwt_test';
@@ -2064,7 +2147,7 @@ test('vibescore-user-status returns pro.active for cutoff user', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-user-status', {
+  const req = new Request('http://localhost/functions/vibeusage-user-status', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -2077,8 +2160,8 @@ test('vibescore-user-status returns pro.active for cutoff user', async () => {
   assert.equal(body.pro.sources.includes('registration_cutoff'), true);
 });
 
-test('vibescore-user-status falls back to users table when created_at missing', async () => {
-  const fn = require('../insforge-functions/vibescore-user-status');
+test('vibeusage-user-status falls back to users table when created_at missing', async () => {
+  const fn = require('../insforge-functions/vibeusage-user-status');
 
   const userId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
   const userJwt = 'user_jwt_test';
@@ -2124,7 +2207,7 @@ test('vibescore-user-status falls back to users table when created_at missing', 
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-user-status', {
+  const req = new Request('http://localhost/functions/vibeusage-user-status', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -2137,8 +2220,8 @@ test('vibescore-user-status falls back to users table when created_at missing', 
   assert.equal(body.pro.sources.includes('registration_cutoff'), true);
 });
 
-test('vibescore-user-status degrades when created_at missing and no service role', async () => {
-  const fn = require('../insforge-functions/vibescore-user-status');
+test('vibeusage-user-status degrades when created_at missing and no service role', async () => {
+  const fn = require('../insforge-functions/vibeusage-user-status');
 
   setDenoEnv({
     INSFORGE_INTERNAL_URL: BASE_URL,
@@ -2181,7 +2264,7 @@ test('vibescore-user-status degrades when created_at missing and no service role
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-user-status', {
+  const req = new Request('http://localhost/functions/vibeusage-user-status', {
     method: 'GET',
     headers: { Authorization: `Bearer ${userJwt}` }
   });
@@ -2196,8 +2279,8 @@ test('vibescore-user-status degrades when created_at missing and no service role
   assert.equal(body.pro.sources.includes('entitlement'), true);
 });
 
-test('vibescore-entitlements rejects non-admin caller', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements rejects non-admin caller', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const userJwt = 'user_jwt_test';
 
@@ -2205,7 +2288,7 @@ test('vibescore-entitlements rejects non-admin caller', async () => {
     throw new Error('Unexpected createClient');
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({})
@@ -2215,8 +2298,8 @@ test('vibescore-entitlements rejects non-admin caller', async () => {
   assert.equal(res.status, 401);
 });
 
-test('vibescore-entitlements inserts entitlement (admin)', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements inserts entitlement (admin)', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createServiceDbMock();
   const userId = '22222222-2222-2222-2222-222222222222';
@@ -2228,7 +2311,7 @@ test('vibescore-entitlements inserts entitlement (admin)', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({
@@ -2252,8 +2335,8 @@ test('vibescore-entitlements inserts entitlement (admin)', async () => {
   assert.equal(db.inserts[0].rows[0].user_id, userId);
 });
 
-test('vibescore-entitlements replays idempotency_key without duplicate insert', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements replays idempotency_key without duplicate insert', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createEntitlementsDbMock();
   const userId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -2274,7 +2357,7 @@ test('vibescore-entitlements replays idempotency_key without duplicate insert', 
     idempotency_key: 'entitlement-1'
   };
 
-  const req1 = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req1 = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify(body)
@@ -2283,7 +2366,7 @@ test('vibescore-entitlements replays idempotency_key without duplicate insert', 
   assert.equal(res1.status, 200);
   const row1 = await res1.json();
 
-  const req2 = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req2 = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify(body)
@@ -2296,8 +2379,8 @@ test('vibescore-entitlements replays idempotency_key without duplicate insert', 
   assert.equal(db.rows.size, 1);
 });
 
-test('vibescore-entitlements accepts long idempotency_key without collisions', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements accepts long idempotency_key without collisions', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createEntitlementsDbMock();
   const userId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -2319,7 +2402,7 @@ test('vibescore-entitlements accepts long idempotency_key without collisions', a
   };
 
   const res1 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
@@ -2332,7 +2415,7 @@ test('vibescore-entitlements accepts long idempotency_key without collisions', a
   const row1 = await res1.json();
 
   const res2 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({
@@ -2348,8 +2431,8 @@ test('vibescore-entitlements accepts long idempotency_key without collisions', a
   assert.equal(db.rows.size, 2);
 });
 
-test('vibescore-entitlements normalizes user_id for idempotency replays', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements normalizes user_id for idempotency replays', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createEntitlementsDbMock({ normalizeUserId: true });
   const userId = 'AAAAAAAA-AAAA-AAAA-AAAA-AAAAAAAAAAAA';
@@ -2371,7 +2454,7 @@ test('vibescore-entitlements normalizes user_id for idempotency replays', async 
   };
 
   const res1 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify(body)
@@ -2381,7 +2464,7 @@ test('vibescore-entitlements normalizes user_id for idempotency replays', async 
   const row1 = await res1.json();
 
   const res2 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify(body)
@@ -2394,8 +2477,8 @@ test('vibescore-entitlements normalizes user_id for idempotency replays', async 
   assert.equal(db.rows.size, 1);
 });
 
-test('vibescore-entitlements rejects idempotency_key payload mismatch', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements rejects idempotency_key payload mismatch', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createEntitlementsDbMock();
   const userId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
@@ -2417,7 +2500,7 @@ test('vibescore-entitlements rejects idempotency_key payload mismatch', async ()
   };
 
   const res1 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify(base)
@@ -2426,7 +2509,7 @@ test('vibescore-entitlements rejects idempotency_key payload mismatch', async ()
   assert.equal(res1.status, 200);
 
   const res2 = await fn(
-    new Request('http://localhost/functions/vibescore-entitlements', {
+    new Request('http://localhost/functions/vibeusage-entitlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
       body: JSON.stringify({ ...base, note: 'beta' })
@@ -2439,8 +2522,8 @@ test('vibescore-entitlements rejects idempotency_key payload mismatch', async ()
   assert.equal(db.rows.size, 1);
 });
 
-test('vibescore-entitlements returns existing row after insert conflict', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements returns existing row after insert conflict', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const userId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
   const conflictRow = {
@@ -2464,7 +2547,7 @@ test('vibescore-entitlements returns existing row after insert conflict', async 
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({
@@ -2483,8 +2566,8 @@ test('vibescore-entitlements returns existing row after insert conflict', async 
   assert.equal(body.id, conflictRow.id);
 });
 
-test('vibescore-entitlements rejects id reuse across users', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements rejects id reuse across users', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const existingId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
   const existingRow = {
@@ -2508,7 +2591,7 @@ test('vibescore-entitlements rejects id reuse across users', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({
@@ -2527,8 +2610,8 @@ test('vibescore-entitlements rejects id reuse across users', async () => {
   assert.equal(body.error, 'Entitlement already exists with different payload');
 });
 
-test('vibescore-entitlements accepts project_admin token', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements accepts project_admin token', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createServiceDbMock();
   const userId = '44444444-4444-4444-4444-444444444444';
@@ -2541,7 +2624,7 @@ test('vibescore-entitlements accepts project_admin token', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${projectAdminJwt}` },
     body: JSON.stringify({
@@ -2556,8 +2639,8 @@ test('vibescore-entitlements accepts project_admin token', async () => {
   assert.equal(res.status, 200);
 });
 
-test('vibescore-entitlements accepts project_admin token from roles array', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements');
+test('vibeusage-entitlements accepts project_admin token from roles array', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements');
 
   const db = createServiceDbMock();
   const userId = '55555555-5555-5555-5555-555555555555';
@@ -2570,7 +2653,7 @@ test('vibescore-entitlements accepts project_admin token from roles array', asyn
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${projectAdminJwt}` },
     body: JSON.stringify({
@@ -2585,8 +2668,8 @@ test('vibescore-entitlements accepts project_admin token from roles array', asyn
   assert.equal(res.status, 200);
 });
 
-test('vibescore-entitlements-revoke updates revoked_at (admin)', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements-revoke');
+test('vibeusage-entitlements-revoke updates revoked_at (admin)', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements-revoke');
 
   const db = createServiceDbMock();
   const entitlementId = '33333333-3333-3333-3333-333333333333';
@@ -2598,7 +2681,7 @@ test('vibescore-entitlements-revoke updates revoked_at (admin)', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements-revoke', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements-revoke', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${SERVICE_ROLE_KEY}` },
     body: JSON.stringify({ id: entitlementId })
@@ -2616,8 +2699,8 @@ test('vibescore-entitlements-revoke updates revoked_at (admin)', async () => {
   assert.equal(db.updates[0].where.value, entitlementId);
 });
 
-test('vibescore-entitlements-revoke accepts project_admin token', async () => {
-  const fn = require('../insforge-functions/vibescore-entitlements-revoke');
+test('vibeusage-entitlements-revoke accepts project_admin token', async () => {
+  const fn = require('../insforge-functions/vibeusage-entitlements-revoke');
 
   const db = createServiceDbMock();
   const entitlementId = '55555555-5555-5555-5555-555555555555';
@@ -2630,7 +2713,7 @@ test('vibescore-entitlements-revoke accepts project_admin token', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-entitlements-revoke', {
+  const req = new Request('http://localhost/functions/vibeusage-entitlements-revoke', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${projectAdminJwt}` },
     body: JSON.stringify({ id: entitlementId })
@@ -2640,8 +2723,8 @@ test('vibescore-entitlements-revoke accepts project_admin token', async () => {
   assert.equal(res.status, 200);
 });
 
-test('vibescore-link-code-init issues a short-lived link code', async () => {
-  const fn = require('../insforge-functions/vibescore-link-code-init');
+test('vibeusage-link-code-init issues a short-lived link code', async () => {
+  const fn = require('../insforge-functions/vibeusage-link-code-init');
 
   const db = createServiceDbMock();
   const userId = '66666666-6666-6666-6666-666666666666';
@@ -2662,7 +2745,7 @@ test('vibescore-link-code-init issues a short-lived link code', async () => {
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-link-code-init', {
+  const req = new Request('http://localhost/functions/vibeusage-link-code-init', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${userJwt}` },
     body: JSON.stringify({})
@@ -2688,8 +2771,8 @@ test('vibescore-link-code-init issues a short-lived link code', async () => {
   assert.equal(row.used_at, null);
 });
 
-test('vibescore-link-code-exchange creates device token and marks link code used', async () => {
-  const fn = require('../insforge-functions/vibescore-link-code-exchange');
+test('vibeusage-link-code-exchange creates device token and marks link code used', async () => {
+  const fn = require('../insforge-functions/vibeusage-link-code-exchange');
 
   const linkCode = 'link_code_test';
   const requestId = 'req_123';
@@ -2712,7 +2795,7 @@ test('vibescore-link-code-exchange creates device token and marks link code used
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+  const req = new Request('http://localhost/functions/vibeusage-link-code-exchange', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ link_code: linkCode, request_id: requestId })
@@ -2751,8 +2834,8 @@ test('vibescore-link-code-exchange creates device token and marks link code used
   );
 });
 
-test('vibescore-link-code-exchange returns existing device for repeated request', async () => {
-  const fn = require('../insforge-functions/vibescore-link-code-exchange');
+test('vibeusage-link-code-exchange returns existing device for repeated request', async () => {
+  const fn = require('../insforge-functions/vibeusage-link-code-exchange');
 
   const linkCode = 'link_code_used';
   const requestId = 'req_repeat';
@@ -2776,7 +2859,7 @@ test('vibescore-link-code-exchange returns existing device for repeated request'
     throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
   };
 
-  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+  const req = new Request('http://localhost/functions/vibeusage-link-code-exchange', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ link_code: linkCode, request_id: requestId })

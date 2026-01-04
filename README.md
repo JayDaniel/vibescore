@@ -5,7 +5,7 @@
 **QUANTIFY YOUR AI OUTPUT**  
 _Real-time AI Analytics for Codex CLI_
 
-[**www.vibescore.space**](https://www.vibescore.space)
+[**www.vibeusage.cc**](https://www.vibeusage.cc)
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Support](https://img.shields.io/badge/Node.js-%3E%3D18-brightgreen.svg)](https://nodejs.org/)
@@ -17,7 +17,7 @@ _Real-time AI Analytics for Codex CLI_
 
 <br/>
 
-<img src="docs/screenshots/dashboard.png" width="900" alt="VibeScore Dashboard Preview"/>
+<img src="docs/screenshots/dashboard.png" width="900" alt="VibeUsage Dashboard Preview"/>
 
 </div>
 
@@ -25,13 +25,13 @@ _Real-time AI Analytics for Codex CLI_
 
 ## 🌌 Overview
 
-**VibeScore** is an intelligent token usage tracking system designed specifically for macOS developers. Through the all-new **Matrix-A Design System**, it provides a high-fidelity cyberpunk-style dashboard that transforms your **AI Output** into quantifiable metrics, supported by the **Neural Divergence Map** for real-time monitoring of multi-model compute distribution.
+**VibeUsage** is an intelligent token usage tracking system designed specifically for macOS developers. Through the all-new **Matrix-A Design System**, it provides a high-fidelity cyberpunk-style dashboard that transforms your **AI Output** into quantifiable metrics, supported by the **Neural Divergence Map** for real-time monitoring of multi-model compute distribution.
 
 > [!TIP] > **Core Index**: Our signature metric that reflects your flow state by analyzing token consumption rates and patterns.
 
 ## 🔒 Privacy-First Architecture (Stealth Protocol)
 
-We believe your code and thoughts are your own. VibeScore is built with strict privacy pillars to ensure your data never leaves your control.
+We believe your code and thoughts are your own. VibeUsage is built with strict privacy pillars to ensure your data never leaves your control.
 
 - 🛡️ **No Content Upload**: We never upload prompts or responses. We only compute token counts locally and send counts plus minimal metadata (timestamps, model, device).
 - 📡 **Local Aggregation**: All token consumption analysis happens on your machine. We only relay quantized 30-minute usage buckets to the cloud.
@@ -51,22 +51,22 @@ We believe your code and thoughts are your own. VibeScore is built with strict p
 
 ### 🌌 Visual Preview
 
-<img src="docs/screenshots/landing.png" width="900" alt="VibeScore Landing Preview"/>
+<img src="docs/screenshots/landing.png" width="900" alt="VibeUsage Landing Preview"/>
 
 ## 🛠️ Quick Start
 
 ### Installation
 
-Initialize your environment once and forget it. VibeScore handles all synchronization in the background automatically.
+Initialize your environment once and forget it. VibeUsage handles all synchronization in the background automatically.
 
 ```bash
-npx --yes @vibescore/tracker init
+npx --yes vibeusage init
 ```
 
 Note: `init` shows a consent prompt in interactive shells. Use `--yes` to skip prompts in non-interactive environments.
 Optional: `--dry-run` previews planned changes without writing files.
 Note: If `~/.code/config.toml` exists (or `CODE_HOME`), `init` also configures Every Code `notify` automatically. No further user intervention is required for data sync.
-Note: If Gemini CLI home exists, `init` installs a `SessionEnd` hook in `~/.gemini/settings.json` and sets `tools.enableHooks = true` so hooks execute. This enables all Gemini hooks; disable by setting `tools.enableHooks = false` (or disabling the `vibescore-tracker` hook).
+Note: If Gemini CLI home exists, `init` installs a `SessionEnd` hook in `~/.gemini/settings.json` and sets `tools.enableHooks = true` so hooks execute. This enables all Gemini hooks; disable by setting `tools.enableHooks = false` (or disabling the `vibeusage-tracker` hook).
 
 ### Sync & Status
 
@@ -75,10 +75,10 @@ While sync happens automatically, you can manually trigger a synchronization or 
 
 ```bash
 # Manually sync latest local session data (Optional)
-npx --yes @vibescore/tracker sync
+npx --yes vibeusage sync
 
 # Check current link status
-npx --yes @vibescore/tracker status
+npx --yes vibeusage status
 ````
 
 ### Sources
@@ -101,15 +101,15 @@ npx --yes @vibescore/tracker status
 - If you expect a non-zero streak, clear cached auth/heatmap data and sign in again:
 
 ```js
-localStorage.removeItem("vibescore.dashboard.auth.v1");
+localStorage.removeItem("vibeusage.dashboard.auth.v1");
 Object.keys(localStorage)
-  .filter((k) => k.startsWith("vibescore.heatmap."))
+  .filter((k) => k.startsWith("vibeusage.heatmap."))
   .forEach((k) => localStorage.removeItem(k));
 location.reload();
 ```
 
 - Complete the landing page sign-in flow again after reload.
-- Note: `insforge-auth-token` is not used by the dashboard; use `vibescore.dashboard.auth.v1`.
+- Note: `insforge-auth-token` is not used by the dashboard; use `vibeusage.dashboard.auth.v1`.
 
 ## 🏗️ Architecture
 
@@ -117,7 +117,7 @@ location.reload();
 graph TD
     A[Codex CLI] -->|Rollout Logs| B(Tracker CLI)
     B -->|AI Tokens| C{Core Relay}
-    C --> D[VibeScore Dashboard]
+    C --> D[VibeUsage Dashboard]
     C --> E[AI Analytics Engine]
 ```
 
@@ -142,7 +142,7 @@ When `debug=1` is included in a usage endpoint request, the response adds a `deb
 
 ```ts
 const res = await fetch(
-  `${baseUrl}/functions/vibescore-usage-summary?from=2025-12-30&to=2025-12-30&debug=1`,
+  `${baseUrl}/functions/vibeusage-usage-summary?from=2025-12-30&to=2025-12-30&debug=1`,
   {
     headers: { Authorization: `Bearer ${userJwt}` }
   }
@@ -177,6 +177,6 @@ This project is licensed under the [MIT License](LICENSE).
 ---
 
 <div align="center">
-  <b>System_Ready // 2024 VibeScore OS</b><br/>
+  <b>System_Ready // 2024 VibeUsage OS</b><br/>
   <i>"More Tokens. More Vibe."</i>
 </div>

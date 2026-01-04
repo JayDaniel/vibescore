@@ -267,7 +267,9 @@ function listDateStrings(from, to) {
 }
 
 function getUsageMaxDays() {
-  const raw = readEnvValue('VIBESCORE_USAGE_MAX_DAYS');
+  const raw =
+    readEnvValue('VIBEUSAGE_USAGE_MAX_DAYS') ??
+    readEnvValue('VIBESCORE_USAGE_MAX_DAYS');
   if (raw == null || raw === '') return 800;
   const n = Number(raw);
   if (!Number.isFinite(n)) return 800;

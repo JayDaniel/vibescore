@@ -20,9 +20,9 @@ const DEFAULT_MODEL = 'unknown';
 
 const ingestGuard = createConcurrencyGuard({
   name: 'vibescore-ingest',
-  envKey: 'VIBESCORE_INGEST_MAX_INFLIGHT',
+  envKey: ['VIBEUSAGE_INGEST_MAX_INFLIGHT', 'VIBESCORE_INGEST_MAX_INFLIGHT'],
   defaultMax: 0,
-  retryAfterEnvKey: 'VIBESCORE_INGEST_RETRY_AFTER_MS',
+  retryAfterEnvKey: ['VIBEUSAGE_INGEST_RETRY_AFTER_MS', 'VIBESCORE_INGEST_RETRY_AFTER_MS'],
   defaultRetryAfterMs: 1000
 });
 
@@ -372,7 +372,7 @@ function buildAnonHeaders({ anonKey, tokenHash }) {
   return {
     apikey: anonKey,
     Authorization: `Bearer ${anonKey}`,
-    'x-vibescore-device-token-hash': tokenHash
+    'x-vibeusage-device-token-hash': tokenHash
   };
 }
 

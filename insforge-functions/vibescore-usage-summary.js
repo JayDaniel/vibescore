@@ -258,13 +258,13 @@ var require_date = __commonJS({
     function toUtcDay(d) {
       return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
     }
-    function formatDateUTC(d) {
+    function formatDateUTC2(d) {
       return toUtcDay(d).toISOString().slice(0, 10);
     }
     function normalizeDateRange(fromRaw, toRaw) {
       const today = /* @__PURE__ */ new Date();
-      const toDefault = formatDateUTC(today);
-      const fromDefault = formatDateUTC(
+      const toDefault = formatDateUTC2(today);
+      const fromDefault = formatDateUTC2(
         new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() - 29))
       );
       const from = isDate(fromRaw) ? fromRaw : fromDefault;
@@ -276,18 +276,18 @@ var require_date = __commonJS({
       const [y, m, d] = yyyyMmDd.split("-").map((n) => Number(n));
       const dt = new Date(Date.UTC(y, m - 1, d));
       if (!Number.isFinite(dt.getTime())) return null;
-      return formatDateUTC(dt) === yyyyMmDd ? dt : null;
+      return formatDateUTC2(dt) === yyyyMmDd ? dt : null;
     }
-    function addUtcDays(date, days) {
+    function addUtcDays2(date, days) {
       return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
     }
     function computeHeatmapWindowUtc({ weeks, weekStartsOn, to }) {
       const end = parseUtcDateString(to) || /* @__PURE__ */ new Date();
       const desired = weekStartsOn === "mon" ? 1 : 0;
       const endDow = end.getUTCDay();
-      const endWeekStart = addUtcDays(end, -((endDow - desired + 7) % 7));
-      const gridStart = addUtcDays(endWeekStart, -7 * (weeks - 1));
-      return { from: formatDateUTC(gridStart), gridStart, end };
+      const endWeekStart = addUtcDays2(end, -((endDow - desired + 7) % 7));
+      const gridStart = addUtcDays2(endWeekStart, -7 * (weeks - 1));
+      return { from: formatDateUTC2(gridStart), gridStart, end };
     }
     var TIMEZONE_FORMATTERS = /* @__PURE__ */ new Map();
     function getTimeZoneFormatter(timeZone) {
@@ -343,7 +343,7 @@ var require_date = __commonJS({
     function addDatePartsDays2(parts, days) {
       const base = dateFromPartsUTC(parts);
       if (!base) return null;
-      return datePartsFromDateUTC(addUtcDays(base, days));
+      return datePartsFromDateUTC(addUtcDays2(base, days));
     }
     function addDatePartsMonths(parts, months) {
       if (!parts) return null;
@@ -483,13 +483,13 @@ var require_date = __commonJS({
       const end = dateFromPartsUTC(endParts);
       if (!start || !end || end < start) return [];
       const days = [];
-      for (let cursor = start; cursor <= end; cursor = addUtcDays(cursor, 1)) {
-        days.push(formatDateUTC(cursor));
+      for (let cursor = start; cursor <= end; cursor = addUtcDays2(cursor, 1)) {
+        days.push(formatDateUTC2(cursor));
       }
       return days;
     }
     function getUsageMaxDays2() {
-      const raw = readEnvValue("VIBESCORE_USAGE_MAX_DAYS");
+      const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS") ?? readEnvValue("VIBESCORE_USAGE_MAX_DAYS");
       if (raw == null || raw === "") return 800;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 800;
@@ -520,10 +520,10 @@ var require_date = __commonJS({
     module2.exports = {
       isDate,
       toUtcDay,
-      formatDateUTC,
+      formatDateUTC: formatDateUTC2,
       normalizeDateRange,
       parseUtcDateString,
-      addUtcDays,
+      addUtcDays: addUtcDays2,
       computeHeatmapWindowUtc,
       parseDateParts: parseDateParts2,
       formatDateParts,
@@ -541,54 +541,6 @@ var require_date = __commonJS({
       normalizeDateRangeLocal: normalizeDateRangeLocal2,
       listDateStrings: listDateStrings2,
       getUsageMaxDays: getUsageMaxDays2
-    };
-  }
-});
-
-// insforge-src/shared/numbers.js
-var require_numbers = __commonJS({
-  "insforge-src/shared/numbers.js"(exports2, module2) {
-    "use strict";
-    function toBigInt2(v) {
-      if (typeof v === "bigint") return v >= 0n ? v : 0n;
-      if (typeof v === "number") {
-        if (!Number.isFinite(v) || v <= 0) return 0n;
-        return BigInt(Math.floor(v));
-      }
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return 0n;
-        try {
-          return BigInt(s);
-        } catch (_e) {
-          return 0n;
-        }
-      }
-      return 0n;
-    }
-    function toPositiveIntOrNull(v) {
-      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (!/^[0-9]+$/.test(s)) return null;
-        const n = Number.parseInt(s, 10);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      if (typeof v === "bigint") {
-        if (v <= 0n) return null;
-        const n = Number(v);
-        return Number.isFinite(n) && n > 0 ? n : null;
-      }
-      return null;
-    }
-    function toPositiveInt(v) {
-      const n = toPositiveIntOrNull(v);
-      return n == null ? 0 : n;
-    }
-    module2.exports = {
-      toBigInt: toBigInt2,
-      toPositiveInt,
-      toPositiveIntOrNull
     };
   }
 });
@@ -634,11 +586,117 @@ var require_pagination = __commonJS({
   }
 });
 
+// insforge-src/shared/numbers.js
+var require_numbers = __commonJS({
+  "insforge-src/shared/numbers.js"(exports2, module2) {
+    "use strict";
+    function toBigInt(v) {
+      if (typeof v === "bigint") return v >= 0n ? v : 0n;
+      if (typeof v === "number") {
+        if (!Number.isFinite(v) || v <= 0) return 0n;
+        return BigInt(Math.floor(v));
+      }
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return 0n;
+        try {
+          return BigInt(s);
+        } catch (_e) {
+          return 0n;
+        }
+      }
+      return 0n;
+    }
+    function toPositiveIntOrNull(v) {
+      if (typeof v === "number" && Number.isInteger(v) && v > 0) return v;
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (!/^[0-9]+$/.test(s)) return null;
+        const n = Number.parseInt(s, 10);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      if (typeof v === "bigint") {
+        if (v <= 0n) return null;
+        const n = Number(v);
+        return Number.isFinite(n) && n > 0 ? n : null;
+      }
+      return null;
+    }
+    function toPositiveInt(v) {
+      const n = toPositiveIntOrNull(v);
+      return n == null ? 0 : n;
+    }
+    module2.exports = {
+      toBigInt,
+      toPositiveInt,
+      toPositiveIntOrNull
+    };
+  }
+});
+
+// insforge-src/shared/usage-rollup.js
+var require_usage_rollup = __commonJS({
+  "insforge-src/shared/usage-rollup.js"(exports2, module2) {
+    "use strict";
+    var { applyCanaryFilter: applyCanaryFilter2 } = require_canary();
+    var { toBigInt } = require_numbers();
+    var { forEachPage: forEachPage2 } = require_pagination();
+    function createTotals2() {
+      return {
+        total_tokens: 0n,
+        input_tokens: 0n,
+        cached_input_tokens: 0n,
+        output_tokens: 0n,
+        reasoning_output_tokens: 0n
+      };
+    }
+    function addRowTotals2(target, row) {
+      if (!target || !row) return;
+      target.total_tokens += toBigInt(row?.total_tokens);
+      target.input_tokens += toBigInt(row?.input_tokens);
+      target.cached_input_tokens += toBigInt(row?.cached_input_tokens);
+      target.output_tokens += toBigInt(row?.output_tokens);
+      target.reasoning_output_tokens += toBigInt(row?.reasoning_output_tokens);
+    }
+    async function fetchRollupRows2({ edgeClient, userId, fromDay, toDay, source, model }) {
+      const rows = [];
+      const { error } = await forEachPage2({
+        createQuery: () => {
+          let query = edgeClient.database.from("vibescore_tracker_daily_rollup").select("day,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", userId).gte("day", fromDay).lte("day", toDay);
+          if (source) query = query.eq("source", source);
+          if (model) query = query.eq("model", model);
+          query = applyCanaryFilter2(query, { source, model });
+          return query.order("day", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+        },
+        onPage: (pageRows) => {
+          if (!Array.isArray(pageRows) || pageRows.length === 0) return;
+          rows.push(...pageRows);
+        }
+      });
+      if (error) return { ok: false, error };
+      return { ok: true, rows };
+    }
+    function sumRollupRows(rows) {
+      const totals = createTotals2();
+      for (const row of Array.isArray(rows) ? rows : []) {
+        addRowTotals2(totals, row);
+      }
+      return totals;
+    }
+    module2.exports = {
+      createTotals: createTotals2,
+      addRowTotals: addRowTotals2,
+      fetchRollupRows: fetchRollupRows2,
+      sumRollupRows
+    };
+  }
+});
+
 // insforge-src/shared/pricing.js
 var require_pricing = __commonJS({
   "insforge-src/shared/pricing.js"(exports2, module2) {
     "use strict";
-    var { toBigInt: toBigInt2 } = require_numbers();
+    var { toBigInt } = require_numbers();
     var { normalizeModel: normalizeModel2 } = require_model();
     var TOKENS_PER_MILLION = 1000000n;
     var MICROS_PER_DOLLAR = 1000000n;
@@ -684,9 +742,13 @@ var require_pricing = __commonJS({
       return normalized;
     }
     function getPricingDefaults() {
+      const primaryModel = normalizeModelValue(getEnvValue("VIBEUSAGE_PRICING_MODEL"));
+      const legacyModel = normalizeModelValue(getEnvValue("VIBESCORE_PRICING_MODEL"));
+      const primarySource = normalizeSource2(getEnvValue("VIBEUSAGE_PRICING_SOURCE"));
+      const legacySource = normalizeSource2(getEnvValue("VIBESCORE_PRICING_SOURCE"));
       return {
-        model: normalizeModelValue(getEnvValue("VIBESCORE_PRICING_MODEL")) || DEFAULT_PROFILE.model,
-        source: normalizeSource2(getEnvValue("VIBESCORE_PRICING_SOURCE")) || DEFAULT_PROFILE.source
+        model: primaryModel || legacyModel || DEFAULT_PROFILE.model,
+        source: primarySource || legacySource || DEFAULT_PROFILE.source
       };
     }
     async function resolvePricingProfile2({ edgeClient, effectiveDate, model, source } = {}) {
@@ -744,11 +806,11 @@ var require_pricing = __commonJS({
     }
     function computeUsageCost2(totals, profile) {
       const pricing = normalizeProfile(profile || DEFAULT_PROFILE);
-      const input = toBigInt2(totals?.input_tokens);
-      const cached = toBigInt2(totals?.cached_input_tokens);
-      const output = toBigInt2(totals?.output_tokens);
-      const reasoning = toBigInt2(totals?.reasoning_output_tokens);
-      const total = toBigInt2(totals?.total_tokens);
+      const input = toBigInt(totals?.input_tokens);
+      const cached = toBigInt(totals?.cached_input_tokens);
+      const output = toBigInt(totals?.output_tokens);
+      const reasoning = toBigInt(totals?.reasoning_output_tokens);
+      const total = toBigInt(totals?.total_tokens);
       const sumAdd = input + cached + output + reasoning;
       const sumOverlap = input + output;
       const canOverlap = cached <= input && reasoning <= output;
@@ -829,6 +891,7 @@ var require_pricing = __commonJS({
       computeUsageCost: computeUsageCost2,
       formatUsdFromMicros: formatUsdFromMicros2,
       getDefaultPricingProfile,
+      _getPricingDefaults: getPricingDefaults,
       resolvePricingProfile: resolvePricingProfile2
     };
   }
@@ -892,9 +955,21 @@ var require_logging = __commonJS({
       if (response && typeof response.status === "number") return response.status;
       return null;
     }
+    function resolveFunctionName(functionName, request) {
+      if (request && typeof request.url === "string") {
+        try {
+          const url = new URL(request.url);
+          const match = url.pathname.match(/\/functions\/([^/?#]+)/);
+          if (match && match[1]) return match[1];
+        } catch (_e) {
+        }
+      }
+      return functionName;
+    }
     function withRequestLogging2(functionName, handler) {
       return async function(request) {
-        const logger = createLogger({ functionName });
+        const resolvedName = resolveFunctionName(functionName, request);
+        const logger = createLogger({ functionName: resolvedName });
         try {
           const response = await handler(request, logger);
           const status = getResponseStatus(response);
@@ -925,7 +1000,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -1018,6 +1093,8 @@ var { getModelParam, normalizeModel } = require_model();
 var { applyCanaryFilter } = require_canary();
 var {
   addDatePartsDays,
+  addUtcDays,
+  formatDateUTC,
   getUsageMaxDays,
   getUsageTimeZoneContext,
   listDateStrings,
@@ -1025,8 +1102,12 @@ var {
   normalizeDateRangeLocal,
   parseDateParts
 } = require_date();
-var { toBigInt } = require_numbers();
 var { forEachPage } = require_pagination();
+var {
+  addRowTotals,
+  createTotals,
+  fetchRollupRows
+} = require_usage_rollup();
 var {
   buildPricingMetadata,
   computeUsageCost,
@@ -1075,44 +1156,130 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
   const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
   const startIso = startUtc.toISOString();
   const endIso = endUtc.toISOString();
-  let totalTokens = 0n;
-  let inputTokens = 0n;
-  let cachedInputTokens = 0n;
-  let outputTokens = 0n;
-  let reasoningOutputTokens = 0n;
-  const distinctModels = /* @__PURE__ */ new Set();
-  const sourcesMap = /* @__PURE__ */ new Map();
+  let totals = createTotals();
+  let sourcesMap = /* @__PURE__ */ new Map();
+  let distinctModels = /* @__PURE__ */ new Set();
   const queryStartMs = Date.now();
   let rowCount = 0;
-  const { error } = await forEachPage({
-    createQuery: () => {
-      let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
-        "hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
-      ).eq("user_id", auth.userId);
-      if (source) query = query.eq("source", source);
-      if (model) query = query.eq("model", model);
-      query = applyCanaryFilter(query, { source, model });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true });
-    },
-    onPage: (rows) => {
-      const pageRows = Array.isArray(rows) ? rows : [];
-      rowCount += pageRows.length;
-      for (const row of pageRows) {
-        totalTokens += toBigInt(row?.total_tokens);
-        inputTokens += toBigInt(row?.input_tokens);
-        cachedInputTokens += toBigInt(row?.cached_input_tokens);
-        outputTokens += toBigInt(row?.output_tokens);
-        reasoningOutputTokens += toBigInt(row?.reasoning_output_tokens);
-        const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
-        const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
-        addTotals(sourceEntry.totals, row);
-        const normalizedModel = normalizeModel(row?.model);
-        if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
-          distinctModels.add(normalizedModel);
+  let rollupHit = false;
+  const resetAggregation = () => {
+    totals = createTotals();
+    sourcesMap = /* @__PURE__ */ new Map();
+    distinctModels = /* @__PURE__ */ new Set();
+    rowCount = 0;
+    rollupHit = false;
+  };
+  const ingestRow = (row) => {
+    addRowTotals(totals, row);
+    const sourceKey = normalizeSource(row?.source) || DEFAULT_SOURCE;
+    const sourceEntry = getSourceEntry(sourcesMap, sourceKey);
+    addRowTotals(sourceEntry.totals, row);
+    const normalizedModel = normalizeModel(row?.model);
+    if (normalizedModel && normalizedModel.toLowerCase() !== "unknown") {
+      distinctModels.add(normalizedModel);
+    }
+  };
+  const sumHourlyRange = async (rangeStartIso, rangeEndIso) => {
+    const { error } = await forEachPage({
+      createQuery: () => {
+        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
+          "hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+        ).eq("user_id", auth.userId);
+        if (source) query = query.eq("source", source);
+        if (model) query = query.eq("model", model);
+        query = applyCanaryFilter(query, { source, model });
+        return query.gte("hour_start", rangeStartIso).lt("hour_start", rangeEndIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
+      },
+      onPage: (rows) => {
+        const pageRows = Array.isArray(rows) ? rows : [];
+        rowCount += pageRows.length;
+        for (const row of pageRows) ingestRow(row);
+      }
+    });
+    if (error) return { ok: false, error };
+    return { ok: true };
+  };
+  const hasHourlyData = async (rangeStartIso, rangeEndIso) => {
+    let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start").eq("user_id", auth.userId);
+    if (source) query = query.eq("source", source);
+    if (model) query = query.eq("model", model);
+    query = applyCanaryFilter(query, { source, model });
+    const { data, error } = await query.gte("hour_start", rangeStartIso).lt("hour_start", rangeEndIso).order("hour_start", { ascending: true }).limit(1);
+    if (error) return { ok: false, error };
+    return { ok: true, hasRows: Array.isArray(data) && data.length > 0 };
+  };
+  const sumRollupRange = async (fromDay, toDay) => {
+    const rollupRes = await fetchRollupRows({
+      edgeClient: auth.edgeClient,
+      userId: auth.userId,
+      fromDay,
+      toDay,
+      source,
+      model
+    });
+    if (!rollupRes.ok) return { ok: false, error: rollupRes.error };
+    const rows = Array.isArray(rollupRes.rows) ? rollupRes.rows : [];
+    rowCount += rows.length;
+    rollupHit = true;
+    for (const row of rows) ingestRow(row);
+    return { ok: true, rowsCount: rows.length };
+  };
+  const startDayUtc = new Date(Date.UTC(
+    startUtc.getUTCFullYear(),
+    startUtc.getUTCMonth(),
+    startUtc.getUTCDate()
+  ));
+  const endDayUtc = new Date(Date.UTC(
+    endUtc.getUTCFullYear(),
+    endUtc.getUTCMonth(),
+    endUtc.getUTCDate()
+  ));
+  const sameUtcDay = startDayUtc.getTime() === endDayUtc.getTime();
+  const startIsBoundary = startUtc.getTime() === startDayUtc.getTime();
+  const endIsBoundary = endUtc.getTime() === endDayUtc.getTime();
+  let hourlyError = null;
+  let rollupEmptyWithHourly = false;
+  if (sameUtcDay) {
+    const hourlyRes = await sumHourlyRange(startIso, endIso);
+    if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+  } else {
+    const rollupStartDate = startIsBoundary ? startDayUtc : addUtcDays(startDayUtc, 1);
+    const rollupEndDate = addUtcDays(endDayUtc, -1);
+    if (!startIsBoundary) {
+      const hourlyRes = await sumHourlyRange(startIso, rollupStartDate.toISOString());
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    }
+    if (!endIsBoundary && !hourlyError) {
+      const hourlyRes = await sumHourlyRange(endDayUtc.toISOString(), endIso);
+      if (!hourlyRes.ok) hourlyError = hourlyRes.error;
+    }
+    if (!hourlyError) {
+      if (rollupStartDate.getTime() <= rollupEndDate.getTime()) {
+        const rollupRes = await sumRollupRange(
+          formatDateUTC(rollupStartDate),
+          formatDateUTC(rollupEndDate)
+        );
+        if (!rollupRes.ok) {
+          hourlyError = rollupRes.error;
+        } else if (rollupRes.rowsCount === 0) {
+          const hourlyCheck = await hasHourlyData(startIso, endIso);
+          if (!hourlyCheck.ok) {
+            hourlyError = hourlyCheck.error;
+          } else if (hourlyCheck.hasRows) {
+            rollupEmptyWithHourly = true;
+          }
         }
       }
     }
-  });
+  }
+  if (hourlyError || rollupEmptyWithHourly) {
+    resetAggregation();
+    const fallbackRes = await sumHourlyRange(startIso, endIso);
+    if (!fallbackRes.ok) {
+      const queryDurationMs2 = Date.now() - queryStartMs;
+      return respond({ error: fallbackRes.error.message }, 500, queryDurationMs2);
+    }
+  }
   const queryDurationMs = Date.now() - queryStartMs;
   logSlowQuery(logger, {
     query_label: "usage_summary",
@@ -1122,9 +1289,9 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
     source: source || null,
     model: model || null,
     tz: tzContext?.timeZone || null,
-    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
+    tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null,
+    rollup_hit: rollupHit
   });
-  if (error) return respond({ error: error.message }, 500, queryDurationMs);
   const impliedModel = model || (distinctModels.size === 1 ? Array.from(distinctModels)[0] : null);
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
@@ -1140,11 +1307,11 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
   }
   const overallCost = computeUsageCost(
     {
-      total_tokens: totalTokens,
-      input_tokens: inputTokens,
-      cached_input_tokens: cachedInputTokens,
-      output_tokens: outputTokens,
-      reasoning_output_tokens: reasoningOutputTokens
+      total_tokens: totals.total_tokens,
+      input_tokens: totals.input_tokens,
+      cached_input_tokens: totals.cached_input_tokens,
+      output_tokens: totals.output_tokens,
+      reasoning_output_tokens: totals.reasoning_output_tokens
     },
     pricingProfile
   );
@@ -1154,12 +1321,12 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
   } else if (pricingModes.size > 1) {
     summaryPricingMode = "mixed";
   }
-  const totals = {
-    total_tokens: totalTokens.toString(),
-    input_tokens: inputTokens.toString(),
-    cached_input_tokens: cachedInputTokens.toString(),
-    output_tokens: outputTokens.toString(),
-    reasoning_output_tokens: reasoningOutputTokens.toString(),
+  const totalsPayload = {
+    total_tokens: totals.total_tokens.toString(),
+    input_tokens: totals.input_tokens.toString(),
+    cached_input_tokens: totals.cached_input_tokens.toString(),
+    output_tokens: totals.output_tokens.toString(),
+    reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
     total_cost_usd: formatUsdFromMicros(totalCostMicros)
   };
   return respond(
@@ -1167,7 +1334,7 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
       from,
       to,
       days: dayKeys.length,
-      totals,
+      totals: totalsPayload,
       pricing: buildPricingMetadata({
         profile: overallCost.profile,
         pricingMode: summaryPricingMode
@@ -1177,23 +1344,6 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
     queryDurationMs
   );
 });
-function createTotals() {
-  return {
-    total_tokens: 0n,
-    input_tokens: 0n,
-    cached_input_tokens: 0n,
-    output_tokens: 0n,
-    reasoning_output_tokens: 0n
-  };
-}
-function addTotals(target, row) {
-  if (!target || !row) return;
-  target.total_tokens = toBigInt(target.total_tokens) + toBigInt(row.total_tokens);
-  target.input_tokens = toBigInt(target.input_tokens) + toBigInt(row.input_tokens);
-  target.cached_input_tokens = toBigInt(target.cached_input_tokens) + toBigInt(row.cached_input_tokens);
-  target.output_tokens = toBigInt(target.output_tokens) + toBigInt(row.output_tokens);
-  target.reasoning_output_tokens = toBigInt(target.reasoning_output_tokens) + toBigInt(row.reasoning_output_tokens);
-}
 function getSourceEntry(map, source) {
   if (map.has(source)) return map.get(source);
   const entry = {

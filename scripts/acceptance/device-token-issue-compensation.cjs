@@ -78,9 +78,9 @@ async function main() {
   const state = { inserts: [], deletes: [] };
   global.createClient = () => createClientStub(state);
 
-  const issueToken = require('../../insforge-src/functions/vibescore-device-token-issue.js');
+  const issueToken = require('../../insforge-src/functions/vibeusage-device-token-issue.js');
 
-  const req = new Request('http://local/functions/vibescore-device-token-issue', {
+  const req = new Request('http://local/functions/vibeusage-device-token-issue', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

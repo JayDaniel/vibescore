@@ -68,7 +68,7 @@ async function main() {
   }
 
   const repoRoot = path.resolve(__dirname, '..', '..');
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-link-code-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-link-code-'));
   const env = {
     ...process.env,
     HOME: tmpRoot,
@@ -94,7 +94,7 @@ async function main() {
     return;
   }
 
-  const configPath = path.join(tmpRoot, '.vibescore', 'tracker', 'config.json');
+  const configPath = path.join(tmpRoot, '.vibeusage', 'tracker', 'config.json');
   const configRaw = await fs.readFile(configPath, 'utf8');
   const config = JSON.parse(configRaw);
   if (!config.deviceToken || !config.deviceId) {

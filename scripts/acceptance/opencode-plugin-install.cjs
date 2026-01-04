@@ -5,7 +5,7 @@ const { spawnSync } = require('node:child_process');
 
 async function main() {
   const repoRoot = path.resolve(__dirname, '..', '..');
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-accept-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-accept-'));
   const homeDir = tmpRoot;
   const codexHome = path.join(tmpRoot, '.codex');
   const opencodeConfigDir = path.join(tmpRoot, '.config', 'opencode');
@@ -32,7 +32,7 @@ async function main() {
     process.exit(init.status || 1);
   }
 
-  const pluginPath = path.join(pluginDir, 'vibescore-tracker.js');
+  const pluginPath = path.join(pluginDir, 'vibeusage-tracker.js');
   const pluginBody = await fs.readFile(pluginPath, 'utf8').catch(() => null);
   if (!pluginBody || !pluginBody.includes('VIBESCORE_TRACKER_PLUGIN')) {
     console.error('Missing or invalid opencode plugin file.');

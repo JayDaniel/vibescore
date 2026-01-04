@@ -8,8 +8,8 @@
 **适用范围**：仅针对 `codex` 源。不会修改原始 rollout 日志，只写入本地队列并上传。
 
 ## 前置条件
-- 已安装并配置 `@vibescore/tracker`
-- 本地存在 `~/.vibescore/tracker/cursors.json`
+- 已安装并配置 `vibeusage`
+- 本地存在 `~/.vibeusage/tracker/cursors.json`
 
 ## 运行方式
 
@@ -35,11 +35,11 @@ node scripts/ops/backfill-codex-unknown.cjs --apply --sync
 如果只想写入队列、不立即上传：
 ```bash
 node scripts/ops/backfill-codex-unknown.cjs --apply
-npx @vibescore/tracker sync --drain
+npx vibeusage sync --drain
 ```
 
 ## 可选参数
-- `--tracker-dir <path>`：覆盖默认 `~/.vibescore/tracker`
+- `--tracker-dir <path>`：覆盖默认 `~/.vibeusage/tracker`
 - `--queue-path <path>`：覆盖 `queue.jsonl`
 - `--cursors-path <path>`：覆盖 `cursors.json`
 - `--dry-run` / `--apply` / `--sync`

@@ -9,7 +9,7 @@ function flattenHookEntries(entries) {
 
 async function main() {
   const repoRoot = path.resolve(__dirname, '..', '..');
-  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-accept-'));
+  const tmpRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-accept-'));
   const homeDir = tmpRoot;
   const codexHome = path.join(tmpRoot, '.codex');
   const geminiHome = path.join(tmpRoot, '.gemini');
@@ -69,7 +69,7 @@ async function main() {
       Array.isArray(entry?.hooks) &&
       entry.hooks.some(
         (hook) =>
-          hook?.name === 'vibescore-tracker' &&
+          hook?.name === 'vibeusage-tracker' &&
           typeof hook?.command === 'string' &&
           hook.command.includes('notify.cjs') &&
           hook.command.includes('--source=gemini')
@@ -96,7 +96,7 @@ async function main() {
   const restored = JSON.parse(restoredRaw);
   const restoredHooks = flattenHookEntries(restored?.hooks?.SessionEnd || []);
   const restoredExisting = restoredHooks.some((hook) => hook?.command === existingCommand);
-  const restoredTracker = restoredHooks.some((hook) => hook?.name === 'vibescore-tracker');
+  const restoredTracker = restoredHooks.some((hook) => hook?.name === 'vibeusage-tracker');
 
   if (!restoredExisting) {
     console.error('Expected existing Gemini hook to remain after uninstall.');

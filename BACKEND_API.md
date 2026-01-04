@@ -1,6 +1,6 @@
-# VibeScore Backend API (InsForge Edge Functions)
+# VibeUsage Backend API (InsForge Edge Functions)
 
-This document describes the public Edge Function endpoints used by the VibeScore tracker (CLI) and dashboard.
+This document describes the public Edge Function endpoints used by the VibeUsage tracker (CLI) and dashboard.
 
 ## Source of truth (important)
 
@@ -26,7 +26,7 @@ Deploy (example):
 
 ```bash
 # Update code only; keep existing slugs.
-insforge2 update-function --slug vibescore-usage-summary --codeFile insforge-functions/vibescore-usage-summary.js
+insforge2 update-function --slug vibeusage-usage-summary --codeFile insforge-functions/vibeusage-usage-summary.js
 ```
 
 ## Auth models
@@ -48,21 +48,21 @@ All endpoints support CORS `OPTIONS` preflight.
 
 When ingestion hangs or fails, use these client-side controls:
 
-- `VIBESCORE_HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds. `0` disables timeouts. Default `20000`. Clamped to `1000..120000`.
-- `VIBESCORE_DEBUG=1` or `--debug`: print request/response timing and original backend errors to stderr.
+- `VIBEUSAGE_HTTP_TIMEOUT_MS`: HTTP request timeout in milliseconds. `0` disables timeouts. Default `20000`. Clamped to `1000..120000`.
+- `VIBEUSAGE_DEBUG=1` or `--debug`: print request/response timing and original backend errors to stderr.
 
 Examples:
 
 ```bash
-VIBESCORE_HTTP_TIMEOUT_MS=60000 npx --yes @vibescore/tracker sync --debug
+VIBEUSAGE_HTTP_TIMEOUT_MS=60000 npx --yes vibeusage sync --debug
 ```
 
 ## Pricing configuration
 
 Pricing metadata is resolved from `vibescore_pricing_profiles`. The default pricing profile is selected by:
 
-- `VIBESCORE_PRICING_SOURCE` (default `openrouter`)
-- `VIBESCORE_PRICING_MODEL` (default `gpt-5.2-codex`; exact match or `*/<model>` suffix match)
+- `VIBEUSAGE_PRICING_SOURCE` (default `openrouter`)
+- `VIBEUSAGE_PRICING_MODEL` (default `gpt-5.2-codex`; exact match or `*/<model>` suffix match)
 
 OpenRouter sync requires these environment variables in InsForge:
 
@@ -81,8 +81,8 @@ Alias mapping:
 
 To reduce runaway scans and runtime resets, usage read endpoints enforce bounded ranges and emit slow-query logs.
 
-- `VIBESCORE_USAGE_MAX_DAYS`: max day span for `GET /functions/vibescore-usage-summary`, `.../vibescore-usage-daily`, and `.../vibescore-usage-model-breakdown`. Default `800`. Oversized ranges return `400` with `Date range too large (max N days)`.
-- `VIBESCORE_SLOW_QUERY_MS`: slow-query log threshold in milliseconds. Default `2000`. When exceeded, a `stage: slow_query` log is emitted with `query_label`, `duration_ms`, and `row_count`.
+- `VIBEUSAGE_USAGE_MAX_DAYS`: max day span for `GET /functions/vibeusage-usage-summary`, `.../vibeusage-usage-daily`, and `.../vibeusage-usage-model-breakdown`. Default `800`. Oversized ranges return `400` with `Date range too large (max N days)`.
+- `VIBEUSAGE_SLOW_QUERY_MS`: slow-query log threshold in milliseconds. Default `2000`. When exceeded, a `stage: slow_query` log is emitted with `query_label`, `duration_ms`, and `row_count`.
 
 ## Client backpressure defaults
 
@@ -98,7 +98,7 @@ To keep low-tier backends stable, the CLI and dashboard apply conservative defau
 
 **Canary note:** Usage endpoints exclude `source=model=canary` buckets by default unless explicitly requested via `source=canary` or `model=canary`.
 
-### POST /functions/vibescore-device-token-issue
+### POST /functions/vibeusage-device-token-issue
 
 Issue a long-lived device token for the current user.
 
@@ -120,7 +120,7 @@ Response:
 
 ---
 
-### POST /functions/vibescore-link-code-init
+### POST /functions/vibeusage-link-code-init
 
 Issue a short-lived, single-use link code bound to the current user session.
 
@@ -145,7 +145,7 @@ Notes:
 
 ---
 
-### POST /functions/vibescore-link-code-exchange
+### POST /functions/vibeusage-link-code-exchange
 
 Exchange a link code for a device token (CLI init flow).
 
@@ -175,7 +175,7 @@ Notes:
 
 ---
 
-### POST /functions/vibescore-ingest
+### POST /functions/vibeusage-ingest
 
 Ingest half-hour token usage aggregates from a device token idempotently.
 
@@ -215,12 +215,12 @@ Notes:
 - Backward compatibility: `{ "data": { "hourly": [...] } }` is accepted, but `{ "hourly": [...] }` remains canonical.
 - `hour_start` is the usage-time bucket. Database `created_at`/`updated_at` reflect ingest/upsert time, so many rows can share the same timestamp when a batch is uploaded.
 - Internal observability: ingest requests also write a best-effort metrics row to `vibescore_tracker_ingest_batches` (project_admin only). Fields include `bucket_count`, `inserted`, `skipped`, `source`, `user_id`, `device_id`, and `created_at`. No prompt/response content is stored.
-- Retention: `POST /functions/vibescore-events-retention` supports `include_ingest_batches` to purge ingest batch metrics older than the cutoff.
-- When concurrency limits are exceeded, the endpoint may return `429` with `Retry-After` to signal backoff. The guard is opt-in via `VIBESCORE_INGEST_MAX_INFLIGHT`.
+- Retention: `POST /functions/vibeusage-events-retention` supports `include_ingest_batches` to purge ingest batch metrics older than the cutoff.
+- When concurrency limits are exceeded, the endpoint may return `429` with `Retry-After` to signal backoff. The guard is opt-in via `VIBEUSAGE_INGEST_MAX_INFLIGHT`.
 
 ---
 
-### POST /functions/vibescore-sync-ping
+### POST /functions/vibeusage-sync-ping
 
 Record a throttled sync heartbeat for a device token. Used to distinguish “unsynced” from “no usage”.
 
@@ -240,7 +240,7 @@ Response:
 
 ---
 
-### GET /functions/vibescore-user-status
+### GET /functions/vibeusage-user-status
 
 Return Pro status for the authenticated user.
 
@@ -271,7 +271,7 @@ Notes:
 
 ---
 
-### POST /functions/vibescore-entitlements
+### POST /functions/vibeusage-entitlements
 
 Grant an entitlement for a user (admin only).
 
@@ -314,7 +314,7 @@ Notes:
 
 ---
 
-### POST /functions/vibescore-entitlements-revoke
+### POST /functions/vibeusage-entitlements-revoke
 
 Revoke an entitlement by id (admin only).
 
@@ -335,7 +335,7 @@ Response:
 
 ---
 
-### GET /functions/vibescore-usage-summary
+### GET /functions/vibeusage-usage-summary
 
 Return token usage totals for the authenticated user over a date range in the requested timezone (default UTC).
 
@@ -389,7 +389,7 @@ Notes:
 
 ---
 
-### GET /functions/vibescore-usage-model-breakdown
+### GET /functions/vibeusage-usage-model-breakdown
 
 Return per-source and per-model aggregates for a date range. This endpoint is intended for model mix and cost breakdown UI.
 
@@ -460,7 +460,7 @@ Response (bigints as strings):
 
 ---
 
-### GET /functions/vibescore-usage-daily
+### GET /functions/vibeusage-usage-daily
 
 Return daily aggregates for the authenticated user in the requested timezone (default UTC).
 
@@ -522,7 +522,7 @@ Notes:
 
 ---
 
-### GET /functions/vibescore-usage-hourly
+### GET /functions/vibeusage-usage-hourly
 
 Return half-hour aggregates (48 buckets) for the authenticated user on a given local day (timezone-aware; default UTC).
 
@@ -565,7 +565,7 @@ Notes:
 
 ---
 
-### GET /functions/vibescore-usage-monthly
+### GET /functions/vibeusage-usage-monthly
 
 Return monthly aggregates for the authenticated user aligned to local months (timezone-aware; default UTC).
 
@@ -606,7 +606,7 @@ Notes:
 
 ---
 
-### GET /functions/vibescore-usage-heatmap
+### GET /functions/vibeusage-usage-heatmap
 
 Return a GitHub-inspired activity heatmap derived from local daily totals (timezone-aware; default UTC).
 
@@ -649,7 +649,7 @@ Notes:
 
 ---
 
-### GET /functions/vibescore-leaderboard
+### GET /functions/vibeusage-leaderboard
 
 Return token usage leaderboards for the current UTC calendar window.
 
@@ -682,7 +682,7 @@ Response:
 
 ---
 
-### POST /functions/vibescore-leaderboard-refresh
+### POST /functions/vibeusage-leaderboard-refresh
 
 Rebuild leaderboard snapshots for the current UTC windows (`day|week|month|total`). Intended for automation (service role only).
 
@@ -712,7 +712,7 @@ ADMIN_TOKEN="<service_role_key or api_key>"
 
 for period in day week month total; do
   echo "period=$period"
-  curl -s -X POST "$BASE_URL/functions/vibescore-leaderboard-refresh?period=${period}" \
+  curl -s -X POST "$BASE_URL/functions/vibeusage-leaderboard-refresh?period=${period}" \
     -H "Authorization: Bearer $ADMIN_TOKEN" \
     -H "Content-Type: application/json" \
     --data "{}"
@@ -722,13 +722,13 @@ done
 Verification:
 
 ```bash
-curl -s "$BASE_URL/functions/vibescore-leaderboard?period=week" \
+curl -s "$BASE_URL/functions/vibeusage-leaderboard?period=week" \
   -H "Authorization: Bearer <user_jwt>"
 ```
 
 ---
 
-### POST /functions/vibescore-leaderboard-settings
+### POST /functions/vibeusage-leaderboard-settings
 
 Update the current user's leaderboard privacy setting.
 
@@ -749,7 +749,7 @@ Response:
 
 ---
 
-### POST /functions/vibescore-pricing-sync
+### POST /functions/vibeusage-pricing-sync
 
 Sync OpenRouter Models API pricing into `vibescore_pricing_profiles` (admin only).
 
@@ -788,7 +788,7 @@ Response:
 
 ---
 
-### POST /functions/vibescore-events-retention
+### POST /functions/vibeusage-events-retention
 
 Purge legacy tracker events older than a cutoff (admin only).
 
@@ -809,7 +809,7 @@ Response:
 
 ---
 
-### GET /functions/vibescore-debug-auth
+### GET /functions/vibeusage-debug-auth
 
 Diagnostic endpoint that reports whether the function runtime has the anon key
 configured and whether the supplied bearer token validates. This does **not**

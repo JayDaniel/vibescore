@@ -24,7 +24,7 @@ async function main() {
   setDenoEnv();
 
   const repoRoot = path.resolve(__dirname, '..', '..');
-  const fn = require(path.join(repoRoot, 'insforge-functions', 'vibescore-link-code-exchange.js'));
+  const fn = require(path.join(repoRoot, 'insforge-functions', 'vibeusage-link-code-exchange.js'));
 
   const linkCode = 'link_code_test';
   const requestId = 'req_123';
@@ -42,7 +42,7 @@ async function main() {
   const db = createLinkCodeExchangeDbMock(linkCodeRow);
   globalThis.createClient = () => ({ database: db.db });
 
-  const req = new Request('http://localhost/functions/vibescore-link-code-exchange', {
+  const req = new Request('http://localhost/functions/vibeusage-link-code-exchange', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ link_code: linkCode, request_id: requestId })

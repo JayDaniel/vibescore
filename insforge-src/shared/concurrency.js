@@ -56,11 +56,16 @@ function createLimiter({ maxInflight, retryAfterMs }) {
 
 function readEnvInt(key, fallback) {
   if (!key) return fallback;
-  const raw = readEnvValue(key);
-  if (raw == null || raw === '') return fallback;
-  const n = Number(raw);
-  if (!Number.isFinite(n)) return fallback;
-  return Math.floor(n);
+  const keys = Array.isArray(key) ? key : [key];
+  for (const candidate of keys) {
+    if (!candidate) continue;
+    const raw = readEnvValue(candidate);
+    if (raw == null || raw === '') continue;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) continue;
+    return Math.floor(n);
+  }
+  return fallback;
 }
 
 function readEnvValue(key) {

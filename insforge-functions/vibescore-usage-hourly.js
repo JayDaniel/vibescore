@@ -489,7 +489,7 @@ var require_date = __commonJS({
       return days;
     }
     function getUsageMaxDays() {
-      const raw = readEnvValue("VIBESCORE_USAGE_MAX_DAYS");
+      const raw = readEnvValue("VIBEUSAGE_USAGE_MAX_DAYS") ?? readEnvValue("VIBESCORE_USAGE_MAX_DAYS");
       if (raw == null || raw === "") return 800;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 800;
@@ -692,9 +692,21 @@ var require_logging = __commonJS({
       if (response && typeof response.status === "number") return response.status;
       return null;
     }
+    function resolveFunctionName(functionName, request) {
+      if (request && typeof request.url === "string") {
+        try {
+          const url = new URL(request.url);
+          const match = url.pathname.match(/\/functions\/([^/?#]+)/);
+          if (match && match[1]) return match[1];
+        } catch (_e) {
+        }
+      }
+      return functionName;
+    }
     function withRequestLogging2(functionName, handler) {
       return async function(request) {
-        const logger = createLogger({ functionName });
+        const resolvedName = resolveFunctionName(functionName, request);
+        const logger = createLogger({ functionName: resolvedName });
         try {
           const response = await handler(request, logger);
           const status = getResponseStatus(response);
@@ -725,7 +737,7 @@ var require_logging = __commonJS({
       });
     }
     function getSlowQueryThresholdMs() {
-      const raw = readEnvValue("VIBESCORE_SLOW_QUERY_MS");
+      const raw = readEnvValue("VIBEUSAGE_SLOW_QUERY_MS") ?? readEnvValue("VIBESCORE_SLOW_QUERY_MS");
       if (raw == null || raw === "") return 2e3;
       const n = Number(raw);
       if (!Number.isFinite(n)) return 2e3;
@@ -928,7 +940,7 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
         if (source) query = query.eq("source", source);
         if (model) query = query.eq("model", model);
         query = applyCanaryFilter(query, { source, model });
-        return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true });
+        return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
       },
       onPage: (rows) => {
         const pageRows = Array.isArray(rows) ? rows : [];
@@ -999,7 +1011,7 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
       if (source) query = query.eq("source", source);
       if (model) query = query.eq("model", model);
       query = applyCanaryFilter(query, { source, model });
-      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true });
+      return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
     },
     onPage: (rows) => {
       const pageRows = Array.isArray(rows) ? rows : [];

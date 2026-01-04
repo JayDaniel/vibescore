@@ -14,7 +14,7 @@ setDenoEnv({
   VIBESCORE_INGEST_RETRY_AFTER_MS: '1000'
 });
 
-const fn = require('../../insforge-functions/vibescore-ingest');
+const fn = require('../../insforge-functions/vibeusage-ingest');
 
 const tokenRow = {
   id: 'token-id',
@@ -96,7 +96,7 @@ function buildRequest() {
     total_tokens: 1
   };
 
-  return new Request('http://localhost/functions/vibescore-ingest', {
+  return new Request('http://localhost/functions/vibeusage-ingest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: 'Bearer device_token_test' },
     body: JSON.stringify({ hourly: [bucket] })

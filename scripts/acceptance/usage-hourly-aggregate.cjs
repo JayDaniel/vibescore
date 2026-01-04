@@ -85,11 +85,11 @@ async function runScenario({
   expectedTotals
 }) {
   global.createClient = () => createClientStub(new DatabaseStub({ aggregateError, aggregateRows, bucketRows }));
-  delete require.cache[require.resolve('../../insforge-src/functions/vibescore-usage-hourly.js')];
-  const usageHourly = require('../../insforge-src/functions/vibescore-usage-hourly.js');
+  delete require.cache[require.resolve('../../insforge-src/functions/vibeusage-usage-hourly.js')];
+  const usageHourly = require('../../insforge-src/functions/vibeusage-usage-hourly.js');
 
   const res = await usageHourly(
-    new Request('http://local/functions/vibescore-usage-hourly?day=2025-12-01', {
+    new Request('http://local/functions/vibeusage-usage-hourly?day=2025-12-01', {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

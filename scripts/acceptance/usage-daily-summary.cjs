@@ -47,9 +47,9 @@ async function main() {
   global.Deno = { env: { get: (k) => process.env[k] || null } };
   global.createClient = createClientStub;
 
-  const usageDaily = require('../../insforge-src/functions/vibescore-usage-daily.js');
+  const usageDaily = require('../../insforge-src/functions/vibeusage-usage-daily.js');
   const res = await usageDaily(new Request(
-    'http://local/functions/vibescore-usage-daily?from=2025-12-01&to=2025-12-01&tz=America/Los_Angeles',
+    'http://local/functions/vibeusage-usage-daily?from=2025-12-01&to=2025-12-01&tz=America/Los_Angeles',
     { method: 'GET', headers: { Authorization: 'Bearer user-jwt' } }
   ));
   const body = await res.json();

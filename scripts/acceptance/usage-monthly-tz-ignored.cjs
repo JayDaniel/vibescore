@@ -110,7 +110,7 @@ async function main() {
   const { handler, calls } = buildFetchStub();
   global.fetch = handler;
 
-  const usageMonthly = require('../../insforge-src/functions/vibescore-usage-monthly.js');
+  const usageMonthly = require('../../insforge-src/functions/vibeusage-usage-monthly.js');
 
   const query = [
     'months=2',
@@ -120,7 +120,7 @@ async function main() {
   ].join('&');
 
   const res = await usageMonthly(
-    new Request(`http://local/functions/vibescore-usage-monthly?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-monthly?${query}`, {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

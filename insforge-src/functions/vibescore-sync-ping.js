@@ -108,7 +108,7 @@ async function touchSyncWithAnonKey({ baseUrl, anonKey, tokenHash, fetcher }) {
     headers: {
       apikey: anonKey,
       Authorization: `Bearer ${anonKey}`,
-      'x-vibescore-device-token-hash': tokenHash,
+      'x-vibeusage-device-token-hash': tokenHash,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify({ min_interval_minutes: MIN_INTERVAL_MINUTES })

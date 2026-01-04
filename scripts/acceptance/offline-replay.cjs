@@ -17,7 +17,7 @@ main().catch((err) => {
 
 async function main() {
   const opts = parseArgs(process.argv.slice(2));
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-offline-replay-'));
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-offline-replay-'));
 
   const queuePath = path.join(tmp, 'queue.jsonl');
   const queueStatePath = path.join(tmp, 'queue.state.json');
@@ -132,7 +132,7 @@ async function startIngestStub() {
   const server = http.createServer((req, res) => {
     if (!req.url) return respond(res, 400, { error: 'Missing url' });
     const url = new URL(req.url, 'http://127.0.0.1');
-    if (req.method !== 'POST' || url.pathname !== '/functions/vibescore-ingest') {
+    if (req.method !== 'POST' || url.pathname !== '/functions/vibeusage-ingest') {
       return respond(res, 404, { error: 'Not found' });
     }
 

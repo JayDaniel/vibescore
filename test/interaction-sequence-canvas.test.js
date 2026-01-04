@@ -36,18 +36,18 @@ async function setupTrackerSyncFixtures(rootDir) {
   await writeFixture(rootDir, "src/lib/rollout.js", "module.exports = {};\n");
   await writeFixture(rootDir, "src/lib/uploader.js", "module.exports = {};\n");
   await writeFixture(rootDir, "src/lib/vibescore-api.js", "module.exports = {};\n");
-  await writeFixture(rootDir, "insforge-src/functions/vibescore-ingest.js", "export {};\n");
-  await writeFixture(rootDir, "insforge-src/functions/vibescore-sync-ping.js", "export {};\n");
+  await writeFixture(rootDir, "insforge-src/functions/vibeusage-ingest.js", "export {};\n");
+  await writeFixture(rootDir, "insforge-src/functions/vibeusage-sync-ping.js", "export {};\n");
 }
 
 async function setupLinkCodeFixtures(rootDir) {
   await writeFixture(rootDir, "src/commands/init.js", "module.exports = {};\n");
-  await writeFixture(rootDir, "insforge-src/functions/vibescore-link-code-init.js", "export {};\n");
-  await writeFixture(rootDir, "insforge-src/functions/vibescore-link-code-exchange.js", "export {};\n");
+  await writeFixture(rootDir, "insforge-src/functions/vibeusage-link-code-init.js", "export {};\n");
+  await writeFixture(rootDir, "insforge-src/functions/vibeusage-link-code-exchange.js", "export {};\n");
 }
 
 test("interaction sequence canvas includes pinned tracker sync scenario", async () => {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "vibescore-seq-"));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "vibeusage-seq-"));
   await setupTrackerSyncFixtures(rootDir);
 
   const config = {
@@ -75,7 +75,7 @@ test("interaction sequence canvas includes pinned tracker sync scenario", async 
 });
 
 test("interaction sequence canvas honors exclude list", async () => {
-  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "vibescore-seq-"));
+  const rootDir = await fs.mkdtemp(path.join(os.tmpdir(), "vibeusage-seq-"));
   await setupTrackerSyncFixtures(rootDir);
   await setupLinkCodeFixtures(rootDir);
 

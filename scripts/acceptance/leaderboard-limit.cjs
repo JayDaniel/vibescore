@@ -68,9 +68,9 @@ async function main() {
     database: db
   });
 
-  const leaderboard = require('../../insforge-src/functions/vibescore-leaderboard.js');
+  const leaderboard = require('../../insforge-src/functions/vibeusage-leaderboard.js');
   const res = await leaderboard(
-    new Request('http://local/functions/vibescore-leaderboard?period=day&limit=1', {
+    new Request('http://local/functions/vibeusage-leaderboard?period=day&limit=1', {
       method: 'GET',
       headers: { Authorization: 'Bearer user-jwt' }
     })

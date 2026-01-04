@@ -43,9 +43,9 @@ if (missing.length > 0) {
 process.stdout.write('npm pack --dry-run ok: required files present.\n');
 
 if (process.env.VIBESCORE_RUN_NPX === '1') {
-  const npx = run('npx', ['--yes', '@vibescore/tracker', '--help'], { stdio: 'inherit' });
+  const npx = run('npx', ['--yes', 'vibeusage', '--help'], { stdio: 'inherit' });
   if (npx.status !== 0) {
-    fail('npx @vibescore/tracker --help failed. Ensure the package is published publicly.');
+    fail('npx vibeusage --help failed. Ensure the package is published publicly.');
   }
 } else {
   process.stdout.write('To verify after publish: VIBESCORE_RUN_NPX=1 node scripts/acceptance/npm-install-smoke.cjs\n');

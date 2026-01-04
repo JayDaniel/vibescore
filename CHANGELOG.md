@@ -51,7 +51,7 @@ All notable changes to this project will be documented in this file.
 - Link code inserts allow authenticated users without service role key.
 
 ### Release
-- Published to npm as `@vibescore/tracker@0.2.0`.
+- Published to npm as `vibeusage@0.2.0`.
 
 ## [0.1.2] - 2025-12-27
 ### Changed
@@ -72,7 +72,7 @@ All notable changes to this project will be documented in this file.
 - Document Gemini CLI log location and `GEMINI_HOME`.
 
 ### Release
-- Published to npm as `@vibescore/tracker@0.1.0`.
+- Published to npm as `vibeusage@0.1.0`.
 
 ## [0.0.7] - 2025-12-24
 ### Added

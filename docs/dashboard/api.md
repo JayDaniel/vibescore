@@ -1,10 +1,10 @@
-# VibeScore Dashboard API Contract
+# VibeUsage Dashboard API Contract
 
-This document is a front-end friendly reference for the VibeScore tracker dashboard APIs.
+This document is a front-end friendly reference for the VibeUsage tracker dashboard APIs.
 
 ## Base URL
 
-- Use `VITE_VIBESCORE_INSFORGE_BASE_URL` when available.
+- Use `VITE_VIBEUSAGE_INSFORGE_BASE_URL` when available.
 - Fallback to the default InsForge base URL used by the CLI/back end.
 
 ## Function Path
@@ -44,7 +44,7 @@ Notes:
 
 ## Endpoints
 
-### GET /functions/vibescore-usage-summary
+### GET /functions/vibeusage-usage-summary
 
 Totals for a date range.
 
@@ -89,7 +89,7 @@ Notes:
 - Pricing metadata is resolved from `vibescore_pricing_profiles` (latest effective row, `active=true`) using the configured default model/source.
 - If the pricing table is empty, the backend falls back to the default profile.
 
-### GET /functions/vibescore-usage-model-breakdown
+### GET /functions/vibeusage-usage-model-breakdown
 
 Per-source and per-model aggregates for a date range (used by model mix + cost breakdown UI).
 
@@ -151,7 +151,7 @@ Response:
 }
 ```
 
-### GET /functions/vibescore-usage-daily
+### GET /functions/vibeusage-usage-daily
 
 Daily aggregates for a date range.
 
@@ -206,7 +206,7 @@ Response:
 Notes:
 - The dashboard should use `summary.totals` directly and MUST NOT compute totals locally.
 
-### GET /functions/vibescore-usage-hourly
+### GET /functions/vibeusage-usage-hourly
 
 Half-hour buckets for a local day (48 buckets).
 
@@ -239,7 +239,7 @@ Response:
 }
 ```
 
-### GET /functions/vibescore-usage-monthly
+### GET /functions/vibeusage-usage-monthly
 
 Monthly aggregates aligned to local months.
 
@@ -270,7 +270,7 @@ Response:
 }
 ```
 
-### GET /functions/vibescore-usage-heatmap
+### GET /functions/vibeusage-usage-heatmap
 
 GitHub-style activity heatmap.
 
@@ -301,7 +301,7 @@ Response:
 }
 ```
 
-### GET /functions/vibescore-leaderboard
+### GET /functions/vibeusage-leaderboard
 
 Leaderboard entries for a UTC window.
 
@@ -324,7 +324,7 @@ Response:
 }
 ```
 
-### POST /functions/vibescore-leaderboard-settings
+### POST /functions/vibeusage-leaderboard-settings
 
 Update current user privacy setting.
 
@@ -477,30 +477,30 @@ export interface LeaderboardSettingsResponse {
 ## Example Requests (TypeScript)
 
 ```ts
-const baseUrl = import.meta.env.VITE_VIBESCORE_INSFORGE_BASE_URL;
+const baseUrl = import.meta.env.VITE_VIBEUSAGE_INSFORGE_BASE_URL;
 const authHeader = { Authorization: `Bearer ${userJwt}` };
 
 // Model breakdown for a date range
 const breakdown = await fetch(
-  `${baseUrl}/functions/vibescore-usage-model-breakdown?from=2025-12-01&to=2025-12-31`,
+  `${baseUrl}/functions/vibeusage-usage-model-breakdown?from=2025-12-01&to=2025-12-31`,
   { headers: authHeader }
 ).then((r) => r.json());
 
 // Daily usage filtered by model
 const daily = await fetch(
-  `${baseUrl}/functions/vibescore-usage-daily?from=2025-12-01&to=2025-12-31&model=gpt-5.2-codex`,
+  `${baseUrl}/functions/vibeusage-usage-daily?from=2025-12-01&to=2025-12-31&model=gpt-5.2-codex`,
   { headers: authHeader }
 ).then((r) => r.json());
 
 // Hourly usage for a local day
 const hourly = await fetch(
-  `${baseUrl}/functions/vibescore-usage-hourly?day=2025-12-25&tz=America/Los_Angeles`,
+  `${baseUrl}/functions/vibeusage-usage-hourly?day=2025-12-25&tz=America/Los_Angeles`,
   { headers: authHeader }
 ).then((r) => r.json());
 
 // Summary usage for a model
 const summary = await fetch(
-  `${baseUrl}/functions/vibescore-usage-summary?from=2025-12-25&to=2025-12-25&model=moonshotai%2FKimi-K2-Thinking`,
+  `${baseUrl}/functions/vibeusage-usage-summary?from=2025-12-25&to=2025-12-25&model=moonshotai%2FKimi-K2-Thinking`,
   { headers: authHeader }
 ).then((r) => r.json());
 ```

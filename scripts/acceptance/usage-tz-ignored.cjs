@@ -114,14 +114,14 @@ async function main() {
   const { handler, calls } = buildFetchStub();
   global.fetch = handler;
 
-  const usageDaily = require('../../insforge-src/functions/vibescore-usage-daily.js');
-  const usageSummary = require('../../insforge-src/functions/vibescore-usage-summary.js');
+  const usageDaily = require('../../insforge-src/functions/vibeusage-usage-daily.js');
+  const usageSummary = require('../../insforge-src/functions/vibeusage-usage-summary.js');
 
   const query = 'from=2025-12-01&to=2025-12-02&tz=America/Los_Angeles&tz_offset_minutes=-480';
   const headers = { Authorization: 'Bearer user-jwt' };
 
   const dailyRes = await usageDaily(
-    new Request(`http://local/functions/vibescore-usage-daily?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-daily?${query}`, {
       method: 'GET',
       headers
     })
@@ -129,7 +129,7 @@ async function main() {
   const dailyBody = await dailyRes.json();
 
   const summaryRes = await usageSummary(
-    new Request(`http://local/functions/vibescore-usage-summary?${query}`, {
+    new Request(`http://local/functions/vibeusage-usage-summary?${query}`, {
       method: 'GET',
       headers
     })

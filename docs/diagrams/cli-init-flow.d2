@@ -1,9 +1,9 @@
 direction: down
 
 Start: "Start"
-InitCmd: "Run: npx --yes @vibescore/tracker init"
-PrepareDirs: "Prepare dirs (~/.vibescore/...)"
-InstallRuntime: "Install local runtime (~/.vibescore/tracker/app)"
+InitCmd: "Run: npx --yes vibeusage init"
+PrepareDirs: "Prepare dirs (~/.vibeusage/...)"
+InstallRuntime: "Install local runtime (~/.vibeusage/tracker/app)"
 ReadConfig: "Read config + env (device token?)"
 
 HasToken: "Device token present?"
@@ -20,8 +20,8 @@ IssueToken: "Issue device token (access token)"
 ExchangeLink: "Exchange link code -> device token"
 SignInPw: "Sign in with password -> access token -> device token"
 
-WriteConfig: "Write ~/.vibescore/tracker/config.json"
-WriteNotify: "Write ~/.vibescore/bin/notify.cjs"
+WriteConfig: "Write ~/.vibeusage/tracker/config.json"
+WriteNotify: "Write ~/.vibeusage/bin/notify.cjs"
 UpdateHooks: "Update hooks (Codex/Every Code/Claude/Gemini/Opencode)"
 PrintSummary: "Print Installed summary"
 SpawnSync: "Spawn sync --drain (detached)"

@@ -12,7 +12,7 @@
 
 ```bash
 BASE_URL="https://5tmappuk.us-east.insforge.app"
-curl -s -X POST "$BASE_URL/functions/vibescore-pricing-sync" \
+curl -s -X POST "$BASE_URL/functions/vibeusage-pricing-sync" \
   -H "Authorization: Bearer <service_role_or_project_admin_key>" \
   -H "Content-Type: application/json" \
   --data '{"retention_days":90}'
