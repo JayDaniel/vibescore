@@ -1,6 +1,6 @@
 ## ADDED Requirements
 ### Requirement: Opencode session idle hook install is safe and reversible
-The system SHALL install a global Opencode plugin under `~/.config/opencode/plugin` that triggers the tracker notify handler on `session.idle` events, without modifying other plugins, and SHALL support removing only the tracker plugin on uninstall.
+The system SHALL install a global Opencode plugin under `~/.config/opencode/plugin` that triggers the tracker notify handler on `session.updated` events, without modifying other plugins, and SHALL support removing only the tracker plugin on uninstall.
 
 #### Scenario: Existing plugins are preserved
 - **GIVEN** Opencode already has plugins under `~/.config/opencode/plugin`
@@ -13,7 +13,7 @@ The system SHALL install a global Opencode plugin under `~/.config/opencode/plug
 - **THEN** only the tracker plugin file SHALL be removed and other plugins SHALL remain unchanged
 
 ### Requirement: Opencode hook command is non-blocking
-The Opencode plugin hook MUST be non-blocking and MUST NOT prevent Opencode from completing a `session.idle` event.
+The Opencode plugin hook MUST be non-blocking and MUST NOT prevent Opencode from completing a `session.updated` event.
 
 #### Scenario: Hook errors do not block Opencode
 - **WHEN** the hook encounters an internal error

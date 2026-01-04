@@ -6,7 +6,7 @@ const { ensureDir } = require('./fs');
 
 const DEFAULT_PLUGIN_NAME = 'vibeusage-tracker.js';
 const PLUGIN_MARKER = 'VIBEUSAGE_TRACKER_PLUGIN';
-const DEFAULT_EVENT = 'session.idle';
+const DEFAULT_EVENT = 'session.updated';
 
 function resolveOpencodeConfigDir({ home = os.homedir(), env = process.env } = {}) {
   const explicit = typeof env.OPENCODE_CONFIG_DIR === 'string' ? env.OPENCODE_CONFIG_DIR.trim() : '';
@@ -88,7 +88,9 @@ function hasPluginMarker(text) {
 }
 
 module.exports = {
+  DEFAULT_EVENT,
   DEFAULT_PLUGIN_NAME,
+  PLUGIN_MARKER,
   resolveOpencodeConfigDir,
   resolveOpencodePluginDir,
   buildOpencodePlugin,

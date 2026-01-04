@@ -27,7 +27,7 @@ We need Opencode token usage ingestion that is automatic and non-invasive, align
   - Parser input: `~/.local/share/opencode/storage/message/**/msg_*.json`.
   - Parser output: half-hour buckets in `~/.vibescore/tracker/queue.jsonl`.
 - Data flow and constraints:
-  - Opencode event `session.idle` triggers notify handler (non-blocking, exit 0).
+  - Opencode event `session.updated` triggers notify handler (non-blocking, exit 0).
   - `sync --auto` parses message JSON, maps tokens, aggregates UTC half-hour buckets, enqueues.
   - No text fields persisted or uploaded.
 - Non-negotiables:
@@ -44,10 +44,10 @@ We need Opencode token usage ingestion that is automatic and non-invasive, align
   3) Parser integrated into sync and tests passing.
   4) Smoke verification captured.
 - Plan B triggers:
-  - If `session.idle` is not emitted in real use, switch to a plugin event with higher frequency (e.g., message/session update) plus short in-plugin debounce.
+- If `session.updated` is not emitted in real use, switch to a plugin event with higher frequency (e.g., message update) plus short in-plugin debounce.
 
 ## Decisions
-- Use Opencode global plugin install to trigger notify on `session.idle` events.
+- Use Opencode global plugin install to trigger notify on `session.updated` events.
 - Parse Opencode local storage message JSON for usage and model; derive timestamps from `time.completed` or `time.created` (ms).
 
 ## Risks / Trade-offs

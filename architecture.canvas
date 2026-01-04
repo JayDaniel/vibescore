@@ -559,7 +559,7 @@
     {
       "id": "test_init-uninstall_test_de3698fe",
       "type": "text",
-      "text": "**init-uninstall.test**\n`test/init-uninstall.test.js`\n\nTest module.\n\n包含：\n- init-uninstall.test (623 行)\n- waitForFile (3 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
+      "text": "**init-uninstall.test**\n`test/init-uninstall.test.js`\n\nTest module.\n\n包含：\n- init-uninstall.test (641 行)\n- waitForFile (3 个参数)\n\n依赖：1 个模块\n被依赖：0 次",
       "x": 100,
       "y": 11212,
       "width": 280,
@@ -746,7 +746,7 @@
     {
       "id": "test_rollout-parser_test_e96ece4a",
       "type": "text",
-      "text": "**rollout-parser.test**\n`test/rollout-parser.test.js`\n\nTest module.\n\n包含：\n- rollout-parser.test (1164 行)\n- buildTurnContextLine (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**rollout-parser.test**\n`test/rollout-parser.test.js`\n\nTest module.\n\n包含：\n- rollout-parser.test (1194 行)\n- buildTurnContextLine (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 11572,
       "width": 280,
@@ -1085,7 +1085,7 @@
     {
       "id": "utils_opencode-config_484c9289",
       "type": "text",
-      "text": "**opencode-config**\n`src/lib/opencode-config.js`\n\nShared utilities.\n\n包含：\n- opencode-config (99 行)\n- resolveOpencodeConfigDir (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**opencode-config**\n`src/lib/opencode-config.js`\n\nShared utilities.\n\n包含：\n- opencode-config (101 行)\n- resolveOpencodeConfigDir (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 820,
       "y": 8880,
       "width": 280,

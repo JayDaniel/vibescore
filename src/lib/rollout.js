@@ -574,7 +574,7 @@ async function parseOpencodeMessageFile({ filePath, lastTotals, hourlyState, tou
   const bucketStart = toUtcHalfHourStart(tsIso);
   if (!bucketStart) return { lastTotals, eventsAggregated: 0 };
 
-  const model = normalizeModelInput(msg?.modelID) || DEFAULT_MODEL;
+  const model = normalizeModelInput(msg?.modelID || msg?.model || msg?.modelId) || DEFAULT_MODEL;
   const bucket = getHourlyBucket(hourlyState, source, model, bucketStart);
   addTotals(bucket.totals, delta);
   touchedBuckets.add(bucketKey(source, model, bucketStart));

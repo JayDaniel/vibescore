@@ -2,6 +2,7 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { spawnSync } = require('node:child_process');
+const { DEFAULT_EVENT, DEFAULT_PLUGIN_NAME, PLUGIN_MARKER } = require('../../src/lib/opencode-config');
 
 async function main() {
   const repoRoot = path.resolve(__dirname, '..', '..');
@@ -32,10 +33,14 @@ async function main() {
     process.exit(init.status || 1);
   }
 
-  const pluginPath = path.join(pluginDir, 'vibeusage-tracker.js');
+  const pluginPath = path.join(pluginDir, DEFAULT_PLUGIN_NAME);
   const pluginBody = await fs.readFile(pluginPath, 'utf8').catch(() => null);
-  if (!pluginBody || !pluginBody.includes('VIBESCORE_TRACKER_PLUGIN')) {
+  if (!pluginBody || !pluginBody.includes(PLUGIN_MARKER)) {
     console.error('Missing or invalid opencode plugin file.');
+    process.exit(1);
+  }
+  if (!pluginBody.includes(`event.type !== "${DEFAULT_EVENT}"`)) {
+    console.error(`Expected opencode plugin to use ${DEFAULT_EVENT} event.`);
     process.exit(1);
   }
   if (!pluginBody.includes('const proc = $`/usr/bin/env node ')) {

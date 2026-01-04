@@ -450,6 +450,34 @@ test('parseOpencodeIncremental defaults missing model to unknown', async () => {
   }
 });
 
+test('parseOpencodeIncremental falls back to model field when modelID missing', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-opencode-'));
+  try {
+    const messageDir = path.join(tmp, 'message', 'ses_test');
+    await fs.mkdir(messageDir, { recursive: true });
+    const messagePath = path.join(messageDir, 'msg_test.json');
+    const queuePath = path.join(tmp, 'queue.jsonl');
+    const cursors = { version: 1, files: {}, updatedAt: null };
+
+    const message = buildOpencodeMessage({
+      model: 'glm-4.7-free',
+      created: '2025-12-29T10:30:00.000Z',
+      tokens: { input: 2, output: 1, reasoning: 0, cached: 0 }
+    });
+
+    await fs.writeFile(messagePath, JSON.stringify(message), 'utf8');
+
+    const res = await parseOpencodeIncremental({ messageFiles: [messagePath], cursors, queuePath });
+    assert.equal(res.bucketsQueued, 1);
+
+    const queued = await readJsonLines(queuePath);
+    assert.equal(queued.length, 1);
+    assert.equal(queued[0].model, 'glm-4.7-free');
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 test('parseRolloutIncremental handles Every Code token_count envelope', async () => {
   const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibescore-rollout-'));
   try {
@@ -1133,13 +1161,15 @@ function buildGeminiSession({ messages }) {
   };
 }
 
-function buildOpencodeMessage({ modelID, created, completed, tokens }) {
+function buildOpencodeMessage({ modelID, model, modelId, created, completed, tokens }) {
   const createdMs = created ? Date.parse(created) : null;
   const completedMs = completed ? Date.parse(completed) : null;
   return {
     id: 'msg_test',
     sessionID: 'ses_test',
     modelID,
+    model,
+    modelId,
     time: {
       created: Number.isFinite(createdMs) ? createdMs : undefined,
       completed: Number.isFinite(completedMs) ? completedMs : undefined
