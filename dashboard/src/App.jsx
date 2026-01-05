@@ -1,6 +1,6 @@
 import React, { Suspense, useEffect, useMemo, useState } from "react";
 
-import { getInsforgeBaseUrl } from "./lib/config.js";
+import { getBaseUrl, isSupabaseDataSource } from "./lib/config.js";
 import { useAuth } from "./hooks/use-auth.js";
 import { buildAuthUrl } from "./lib/auth-url.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.jsx";
@@ -10,6 +10,7 @@ import { fetchLatestTrackerVersion } from "./lib/npm-version.js";
 
 import { UpgradeAlertModal } from "./ui/matrix-a/components/UpgradeAlertModal.jsx";
 
+// Lazy load pages
 const DashboardPage = React.lazy(() =>
   import("./pages/DashboardPage.jsx").then((mod) => ({
     default: mod.DashboardPage,
@@ -18,6 +19,12 @@ const DashboardPage = React.lazy(() =>
 const AnnualPosterPage = React.lazy(() =>
   import("./pages/AnnualPosterPage.jsx").then((mod) => ({
     default: mod.AnnualPosterPage,
+  }))
+);
+// Lazy load Supabase login page (only loaded when using Supabase data source)
+const SupabaseSignInPage = React.lazy(() =>
+  import("./components/SupabaseSignInPage.jsx").then((mod) => ({
+    default: mod.SupabaseSignInPage,
   }))
 );
 
@@ -38,7 +45,8 @@ function getSafeRedirect(searchParams) {
 }
 
 export default function App() {
-  const baseUrl = useMemo(() => getInsforgeBaseUrl(), []);
+  const baseUrl = useMemo(() => getBaseUrl(), []);
+  const useSupabase = useMemo(() => isSupabaseDataSource(), []);
   const { auth, signedIn, sessionExpired, signOut } = useAuth();
   const mockEnabled = isMockEnabled();
   const [latestVersion, setLatestVersion] = useState(null);
@@ -68,6 +76,8 @@ export default function App() {
     () => `${window.location.origin}/auth/callback`,
     []
   );
+  
+  // InsForge auth URLs (only used when not using Supabase)
   const signInUrl = useMemo(
     () =>
       buildAuthUrl({
@@ -89,9 +99,18 @@ export default function App() {
 
   const loadingShell = <div className="min-h-screen bg-[#050505]" />;
   let content = null;
-  const accessEnabled = signedIn || mockEnabled || sessionExpired;
+  
   if (!signedIn && !mockEnabled) {
-    content = <LandingPage signInUrl={signInUrl} signUpUrl={signUpUrl} />;
+    // Show login page based on data source
+    if (useSupabase) {
+      content = (
+        <Suspense fallback={loadingShell}>
+          <SupabaseSignInPage redirectUrl={defaultRedirectUrl} />
+        </Suspense>
+      );
+    } else {
+      content = <LandingPage signInUrl={signInUrl} signUpUrl={signUpUrl} />;
+    }
   } else if (showPoster) {
     content = (
       <Suspense fallback={loadingShell}>
