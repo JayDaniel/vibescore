@@ -20,6 +20,8 @@
     "copy:pull": "node scripts/copy-sync.cjs pull",
     "copy:push": "node scripts/copy-sync.cjs push",
     "architecture:canvas": "node scripts/ops/architecture-canvas.cjs",
+    "architecture:canvas:focus": "node scripts/ops/architecture-canvas.cjs --focus",
+    "architecture:canvas:list-modules": "node scripts/ops/architecture-canvas.cjs --list-modules",
     "validate:guardrails": "node scripts/validate-architecture-guardrails.cjs"
   },
   "bin": {
