@@ -242,6 +242,19 @@ Usage endpoints SHALL exclude `source=model=canary` buckets unless explicitly re
 - **WHEN** a user calls a usage endpoint without `source=canary` or `model=canary`
 - **THEN** canary buckets SHALL be excluded from aggregates
 
+### Requirement: Usage endpoints canonicalize model identity
+Usage endpoints SHALL resolve usage model names to a canonical `model_id` via alias mapping for the effective date. The `model` query parameter SHALL accept a canonical id and expand to all active aliases for the requested range. Responses that include model identity SHALL emit both `model_id` (canonical) and display `model`.
+
+#### Scenario: Canonical model filter includes alias rows
+- **GIVEN** an alias mapping `gpt-4o-mini -> gpt-4o` is active for the requested date range
+- **WHEN** a client calls `GET /functions/vibeusage-usage-daily?model=gpt-4o`
+- **THEN** usage from `gpt-4o-mini` SHALL be included in the aggregates
+- **AND** the response SHALL return `model_id = "gpt-4o"`
+
+#### Scenario: Model breakdown returns canonical ids
+- **WHEN** a client calls `GET /functions/vibeusage-usage-model-breakdown`
+- **THEN** each model entry SHALL include `model_id` (canonical) and display `model`
+
 ### Requirement: Hourly usage marks unsynced buckets
 The hourly usage endpoint SHALL mark buckets after the latest sync timestamp as `missing: true` so the UI can distinguish unsynced hours. When `tz` or `tz_offset_minutes` is provided, the `day` parameter SHALL be interpreted in that timezone; otherwise it SHALL default to UTC.
 
