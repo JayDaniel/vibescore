@@ -457,7 +457,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (3842 行)\n- toBase64Url (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (3988 行)\n- toBase64Url (1 个参数)\n\n依赖：2 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 10852,
       "width": 280,
@@ -1947,7 +1947,7 @@
     {
       "id": "edge-function_vibescore-usage-heatmap_67a4af30",
       "type": "text",
-      "text": "**vibescore-usage-heatmap**\n`insforge-src/functions/vibescore-usage-heatmap.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-heatmap (394 行)\n- normalizeWeeks (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-heatmap**\n`insforge-src/functions/vibescore-usage-heatmap.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-heatmap (430 行)\n- normalizeWeeks (1 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2260,
       "y": 4936,
       "width": 280,
@@ -1998,7 +1998,7 @@
     {
       "id": "edge-function_vibescore-usage-monthly_3f4484b1",
       "type": "text",
-      "text": "**vibescore-usage-monthly**\n`insforge-src/functions/vibescore-usage-monthly.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-monthly (175 行)\n- respond (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-monthly**\n`insforge-src/functions/vibescore-usage-monthly.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-monthly (196 行)\n- respond (3 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 460,
       "y": 5296,
       "width": 280,

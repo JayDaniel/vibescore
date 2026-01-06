@@ -934,6 +934,87 @@ var require_debug = __commonJS({
   }
 });
 
+// insforge-src/shared/model-alias-timeline.js
+var require_model_alias_timeline = __commonJS({
+  "insforge-src/shared/model-alias-timeline.js"(exports2, module2) {
+    "use strict";
+    var { normalizeModel } = require_model();
+    var { normalizeUsageModelKey } = require_model_identity();
+    var DEFAULT_MODEL = "unknown";
+    function extractDateKey(value) {
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
+      return null;
+    }
+    function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
+      const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
+      const entries = timeline && typeof timeline.get === "function" ? timeline.get(normalized) : null;
+      if (Array.isArray(entries)) {
+        let match = null;
+        for (const entry of entries) {
+          if (entry.effective_from && entry.effective_from <= dateKey) {
+            match = entry;
+          } else if (entry.effective_from && entry.effective_from > dateKey) {
+            break;
+          }
+        }
+        if (match) {
+          return { model_id: match.model_id, model: match.model };
+        }
+      }
+      const display = normalizeModel(rawModel) || DEFAULT_MODEL;
+      return { model_id: normalized, model: display };
+    }
+    function buildAliasTimeline({ usageModels, aliasRows } = {}) {
+      const normalized = new Set(
+        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : []
+      );
+      const timeline = /* @__PURE__ */ new Map();
+      const rows = Array.isArray(aliasRows) ? aliasRows : [];
+      for (const row of rows) {
+        const usageKey = normalizeUsageModelKey(row?.usage_model);
+        const canonical = normalizeUsageModelKey(row?.canonical_model);
+        if (!usageKey || !canonical) continue;
+        if (normalized.size && !normalized.has(usageKey)) continue;
+        const display = normalizeModel(row?.display_name) || canonical;
+        const effective = String(row?.effective_from || "");
+        if (!effective) continue;
+        const entry = {
+          model_id: canonical,
+          model: display,
+          effective_from: effective
+        };
+        const list = timeline.get(usageKey);
+        if (list) {
+          list.push(entry);
+        } else {
+          timeline.set(usageKey, [entry]);
+        }
+      }
+      for (const list of timeline.values()) {
+        list.sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
+      }
+      return timeline;
+    }
+    async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
+      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : [];
+      if (!models.length || !edgeClient || !edgeClient.database) return [];
+      const dateKey = typeof effectiveDate === "string" && effectiveDate.trim() ? effectiveDate.trim() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lte("effective_from", dateKey).order("effective_from", { ascending: true });
+      const result = await query;
+      const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
+      if (!Array.isArray(data) || result?.error || query?.error) return [];
+      return data;
+    }
+    module2.exports = {
+      extractDateKey,
+      resolveIdentityAtDate,
+      buildAliasTimeline,
+      fetchAliasRows
+    };
+  }
+});
+
 // insforge-src/functions/vibescore-usage-monthly.js
 var require_vibescore_usage_monthly = __commonJS({
   "insforge-src/functions/vibescore-usage-monthly.js"(exports2, module2) {
@@ -958,6 +1039,12 @@ var require_vibescore_usage_monthly = __commonJS({
     var { forEachPage } = require_pagination();
     var { logSlowQuery, withRequestLogging } = require_logging();
     var { isDebugEnabled, withSlowQueryDebugPayload } = require_debug();
+    var {
+      buildAliasTimeline,
+      extractDateKey,
+      fetchAliasRows,
+      resolveIdentityAtDate
+    } = require_model_alias_timeline();
     var MAX_MONTHS = 24;
     module2.exports = withRequestLogging("vibescore-usage-monthly", async function(request, logger) {
       const opt = handleOptions(request);
@@ -1011,6 +1098,15 @@ var require_vibescore_usage_monthly = __commonJS({
       const canonicalModel = modelFilter.canonical;
       const usageModels = modelFilter.usageModels;
       const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+      let aliasTimeline = null;
+      if (hasModelFilter) {
+        const aliasRows = await fetchAliasRows({
+          edgeClient: auth.edgeClient,
+          usageModels,
+          effectiveDate: to
+        });
+        aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+      }
       const monthKeys = [];
       const buckets = /* @__PURE__ */ new Map();
       for (let i = 0; i < months; i += 1) {
@@ -1029,7 +1125,7 @@ var require_vibescore_usage_monthly = __commonJS({
       let rowCount = 0;
       const { error } = await forEachPage({
         createQuery: () => {
-          let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+          let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
           if (source) query = query.eq("source", source);
           if (hasModelFilter) query = query.in("model", usageModels);
           query = applyCanaryFilter(query, { source, model: canonicalModel });
@@ -1043,6 +1139,12 @@ var require_vibescore_usage_monthly = __commonJS({
             if (!ts) continue;
             const dt = new Date(ts);
             if (!Number.isFinite(dt.getTime())) continue;
+            if (hasModelFilter) {
+              const rawModel = row?.model;
+              const dateKey = extractDateKey(ts) || to;
+              const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
+              if (identity.model_id !== canonicalModel) continue;
+            }
             const localParts = getLocalParts(dt, tzContext);
             const key = `${localParts.year}-${String(localParts.month).padStart(2, "0")}`;
             const bucket = buckets.get(key);

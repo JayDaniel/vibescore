@@ -23,6 +23,12 @@ const { toBigInt, toPositiveIntOrNull } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
+const {
+  buildAliasTimeline,
+  extractDateKey,
+  fetchAliasRows,
+  resolveIdentityAtDate
+} = require('../shared/model-alias-timeline');
 
 const MAX_MONTHS = 24;
 
@@ -88,6 +94,15 @@ module.exports = withRequestLogging('vibescore-usage-monthly', async function(re
   const canonicalModel = modelFilter.canonical;
   const usageModels = modelFilter.usageModels;
   const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+  let aliasTimeline = null;
+  if (hasModelFilter) {
+    const aliasRows = await fetchAliasRows({
+      edgeClient: auth.edgeClient,
+      usageModels,
+      effectiveDate: to
+    });
+    aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+  }
 
   const monthKeys = [];
   const buckets = new Map();
@@ -111,7 +126,7 @@ module.exports = withRequestLogging('vibescore-usage-monthly', async function(re
     createQuery: () => {
       let query = auth.edgeClient.database
         .from('vibescore_tracker_hourly')
-        .select('hour_start,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+        .select('hour_start,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
         .eq('user_id', auth.userId);
       if (source) query = query.eq('source', source);
       if (hasModelFilter) query = query.in('model', usageModels);
@@ -132,6 +147,12 @@ module.exports = withRequestLogging('vibescore-usage-monthly', async function(re
         if (!ts) continue;
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;
+        if (hasModelFilter) {
+          const rawModel = row?.model;
+          const dateKey = extractDateKey(ts) || to;
+          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
+          if (identity.model_id !== canonicalModel) continue;
+        }
         const localParts = getLocalParts(dt, tzContext);
         const key = `${localParts.year}-${String(localParts.month).padStart(2, '0')}`;
         const bucket = buckets.get(key);

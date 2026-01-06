@@ -29,6 +29,12 @@ const { toBigInt } = require('../shared/numbers');
 const { forEachPage } = require('../shared/pagination');
 const { logSlowQuery, withRequestLogging } = require('../shared/logging');
 const { isDebugEnabled, withSlowQueryDebugPayload } = require('../shared/debug');
+const {
+  buildAliasTimeline,
+  extractDateKey,
+  fetchAliasRows,
+  resolveIdentityAtDate
+} = require('../shared/model-alias-timeline');
 
 module.exports = withRequestLogging('vibescore-usage-heatmap', async function(request, logger) {
   const opt = handleOptions(request);
@@ -90,6 +96,15 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
     const canonicalModel = modelFilter.canonical;
     const usageModels = modelFilter.usageModels;
     const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+    let aliasTimeline = null;
+    if (hasModelFilter) {
+      const aliasRows = await fetchAliasRows({
+        edgeClient: auth.edgeClient,
+        usageModels,
+        effectiveDate: to
+      });
+      aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+    }
 
     const valuesByDay = new Map();
     const queryStartMs = Date.now();
@@ -98,7 +113,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
       createQuery: () => {
         let query = auth.edgeClient.database
           .from('vibescore_tracker_hourly')
-          .select('hour_start,total_tokens')
+          .select('hour_start,model,total_tokens')
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
         if (hasModelFilter) query = query.in('model', usageModels);
@@ -119,6 +134,12 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
           if (!ts) continue;
           const dt = new Date(ts);
           if (!Number.isFinite(dt.getTime())) continue;
+          if (hasModelFilter) {
+            const rawModel = row?.model;
+            const dateKey = extractDateKey(ts) || to;
+            const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
+            if (identity.model_id !== canonicalModel) continue;
+          }
           const day = formatDateUTC(dt);
           const prev = valuesByDay.get(day) || 0n;
           valuesByDay.set(day, prev + toBigInt(row?.total_tokens));
@@ -239,6 +260,15 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
   const canonicalModel = modelFilter.canonical;
   const usageModels = modelFilter.usageModels;
   const hasModelFilter = Array.isArray(usageModels) && usageModels.length > 0;
+  let aliasTimeline = null;
+  if (hasModelFilter) {
+    const aliasRows = await fetchAliasRows({
+      edgeClient: auth.edgeClient,
+      usageModels,
+      effectiveDate: to
+    });
+    aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+  }
 
   const valuesByDay = new Map();
   const queryStartMs = Date.now();
@@ -247,7 +277,7 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
     createQuery: () => {
       let query = auth.edgeClient.database
         .from('vibescore_tracker_hourly')
-        .select('hour_start,total_tokens')
+        .select('hour_start,model,total_tokens')
         .eq('user_id', auth.userId);
       if (source) query = query.eq('source', source);
       if (hasModelFilter) query = query.in('model', usageModels);
@@ -268,6 +298,12 @@ module.exports = withRequestLogging('vibescore-usage-heatmap', async function(re
         if (!ts) continue;
         const dt = new Date(ts);
         if (!Number.isFinite(dt.getTime())) continue;
+        if (hasModelFilter) {
+          const rawModel = row?.model;
+          const dateKey = extractDateKey(ts) || to;
+          const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
+          if (identity.model_id !== canonicalModel) continue;
+        }
         const key = formatLocalDateKey(dt, tzContext);
         const prev = valuesByDay.get(key) || 0n;
         valuesByDay.set(key, prev + toBigInt(row?.total_tokens));
