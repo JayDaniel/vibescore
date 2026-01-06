@@ -8,6 +8,7 @@ Prevent Opencode message rewrites from double counting token usage.
 - fix(rollout): fall back to legacy file totals when opencode state missing
 - fix(rollout): defer opencode totals when timestamp missing
 - fix(rollout): retain totals when message file is empty
+- fix(sql): use timestamptz in rollup backfill
 - test(rollout): cover opencode message rewrite scenarios
 - docs(pr): record regression command and result
 
@@ -17,6 +18,7 @@ Prevent Opencode message rewrites from double counting token usage.
 
 ### Verification method (choose at least one)
 - [x] `node --test test/rollout-parser.test.js` => PASS
+- [x] `npm run validate:guardrails` => PASS
 
 ### Uncovered scope
 - Full end-to-end ingestion with real Opencode storage replay.
