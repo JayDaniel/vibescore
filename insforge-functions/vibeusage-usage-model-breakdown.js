@@ -1148,7 +1148,7 @@ var require_vibescore_usage_model_breakdown = __commonJS({
     var { getBaseUrl } = require_env();
     var { getSourceParam, normalizeSource } = require_source();
     var { normalizeModel } = require_model();
-    var { applyModelIdentity, resolveModelIdentity } = require_model_identity();
+    var { normalizeUsageModelKey } = require_model_identity();
     var { applyCanaryFilter } = require_canary();
     var {
       addDatePartsDays,
@@ -1207,14 +1207,14 @@ var require_vibescore_usage_model_breakdown = __commonJS({
       const endUtc = localDatePartsToUtc(addDatePartsDays(endParts, 1), tzContext);
       const startIso = startUtc.toISOString();
       const endIso = endUtc.toISOString();
-      const sourcesMap = /* @__PURE__ */ new Map();
+      const rowsBuffer = [];
       const distinctModels = /* @__PURE__ */ new Set();
       const queryStartMs = Date.now();
       let rowCount = 0;
       const { error } = await forEachPage({
         createQuery: () => {
           let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
-            "source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+            "hour_start,source,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
           ).eq("user_id", auth.userId);
           if (sourceFilter) query = query.eq("source", sourceFilter);
           query = applyCanaryFilter(query, { source: sourceFilter, model: null });
@@ -1226,12 +1226,20 @@ var require_vibescore_usage_model_breakdown = __commonJS({
           for (const row of pageRows) {
             const source = normalizeSource(row?.source) || DEFAULT_SOURCE;
             const model = normalizeModel(row?.model) || DEFAULT_MODEL;
-            const entry = getSourceEntry(sourcesMap, source);
-            const modelEntry = getModelEntry(entry.models, model);
-            addTotals(entry.totals, row);
-            addTotals(modelEntry.totals, row);
-            if (model !== DEFAULT_MODEL) {
-              distinctModels.add(model);
+            const usageKey = normalizeUsageModelKey(model);
+            rowsBuffer.push({
+              source,
+              model,
+              usageKey,
+              hour_start: row?.hour_start,
+              total_tokens: row?.total_tokens,
+              input_tokens: row?.input_tokens,
+              cached_input_tokens: row?.cached_input_tokens,
+              output_tokens: row?.output_tokens,
+              reasoning_output_tokens: row?.reasoning_output_tokens
+            });
+            if (usageKey && usageKey !== DEFAULT_MODEL) {
+              distinctModels.add(usageKey);
             }
           }
         }
@@ -1247,17 +1255,32 @@ var require_vibescore_usage_model_breakdown = __commonJS({
         tz_offset_minutes: Number.isFinite(tzContext?.offsetMinutes) ? tzContext.offsetMinutes : null
       });
       if (error) return respond({ error: error.message }, 500, queryDurationMs);
-      const identityMap = await resolveModelIdentity({
+      const usageModels = Array.from(distinctModels.values());
+      const aliasRows = await fetchAliasRows({
         edgeClient: auth.edgeClient,
-        usageModels: Array.from(distinctModels.values()),
+        usageModels,
         effectiveDate: to
       });
+      const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
+      const sourcesMap = /* @__PURE__ */ new Map();
       const canonicalModels = /* @__PURE__ */ new Set();
-      for (const model of distinctModels.values()) {
-        const identity = applyModelIdentity({ rawModel: model, identityMap });
+      const grandTotals = createTotals();
+      for (const row of rowsBuffer) {
+        const sourceEntry = getSourceEntry(sourcesMap, row.source);
+        addTotals(sourceEntry.totals, row);
+        addTotals(grandTotals, row);
+        const dateKey = extractDateKey(row.hour_start) || to;
+        const identity = resolveIdentityAtDate({
+          rawModel: row.model,
+          usageKey: row.usageKey,
+          dateKey,
+          timeline: aliasTimeline
+        });
         if (identity.model_id && identity.model_id !== DEFAULT_MODEL) {
           canonicalModels.add(identity.model_id);
         }
+        const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
+        addTotals(canonicalEntry.totals, row);
       }
       const pricingModel = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
       const pricingProfile = await resolvePricingProfile({
@@ -1265,16 +1288,8 @@ var require_vibescore_usage_model_breakdown = __commonJS({
         model: pricingModel,
         effectiveDate: to
       });
-      const grandTotals = createTotals();
       const sources = Array.from(sourcesMap.values()).map((entry) => {
-        addTotals(grandTotals, entry.totals);
-        const canonicalMap = /* @__PURE__ */ new Map();
-        for (const modelEntry of entry.models.values()) {
-          const identity = applyModelIdentity({ rawModel: modelEntry.model, identityMap });
-          const canonicalEntry = getCanonicalEntry(canonicalMap, identity);
-          addTotals(canonicalEntry.totals, modelEntry.totals);
-        }
-        const models = Array.from(canonicalMap.values()).map((modelEntry) => formatTotals(modelEntry, pricingProfile)).sort(compareTotals);
+        const models = Array.from(entry.models.values()).map((modelEntry) => formatTotals(modelEntry, pricingProfile)).sort(compareTotals);
         const totals = formatTotals(entry, pricingProfile).totals;
         return {
           source: entry.source,
@@ -1325,15 +1340,6 @@ var require_vibescore_usage_model_breakdown = __commonJS({
       map.set(source, entry);
       return entry;
     }
-    function getModelEntry(map, model) {
-      if (map.has(model)) return map.get(model);
-      const entry = {
-        model,
-        totals: createTotals()
-      };
-      map.set(model, entry);
-      return entry;
-    }
     function getCanonicalEntry(map, identity) {
       const key = identity?.model_id || DEFAULT_MODEL;
       if (map.has(key)) return map.get(key);
@@ -1344,6 +1350,71 @@ var require_vibescore_usage_model_breakdown = __commonJS({
       };
       map.set(key, entry);
       return entry;
+    }
+    function extractDateKey(value) {
+      if (value instanceof Date) return value.toISOString().slice(0, 10);
+      if (typeof value === "string" && value.length >= 10) return value.slice(0, 10);
+      return null;
+    }
+    function resolveIdentityAtDate({ rawModel, usageKey, dateKey, timeline } = {}) {
+      const normalized = usageKey || normalizeUsageModelKey(rawModel) || DEFAULT_MODEL;
+      const entries = timeline && typeof timeline.get === "function" ? timeline.get(normalized) : null;
+      if (Array.isArray(entries)) {
+        let match = null;
+        for (const entry of entries) {
+          if (entry.effective_from && entry.effective_from <= dateKey) {
+            match = entry;
+          } else if (entry.effective_from && entry.effective_from > dateKey) {
+            break;
+          }
+        }
+        if (match) {
+          return { model_id: match.model_id, model: match.model };
+        }
+      }
+      const display = normalizeModel(rawModel) || DEFAULT_MODEL;
+      return { model_id: normalized, model: display };
+    }
+    function buildAliasTimeline({ usageModels, aliasRows } = {}) {
+      const normalized = new Set(
+        Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : []
+      );
+      const timeline = /* @__PURE__ */ new Map();
+      const rows = Array.isArray(aliasRows) ? aliasRows : [];
+      for (const row of rows) {
+        const usageKey = normalizeUsageModelKey(row?.usage_model);
+        const canonical = normalizeUsageModelKey(row?.canonical_model);
+        if (!usageKey || !canonical) continue;
+        if (normalized.size && !normalized.has(usageKey)) continue;
+        const display = normalizeModel(row?.display_name) || canonical;
+        const effective = String(row?.effective_from || "");
+        if (!effective) continue;
+        const entry = {
+          model_id: canonical,
+          model: display,
+          effective_from: effective
+        };
+        const list = timeline.get(usageKey);
+        if (list) {
+          list.push(entry);
+        } else {
+          timeline.set(usageKey, [entry]);
+        }
+      }
+      for (const list of timeline.values()) {
+        list.sort((a, b) => String(a.effective_from).localeCompare(String(b.effective_from)));
+      }
+      return timeline;
+    }
+    async function fetchAliasRows({ edgeClient, usageModels, effectiveDate } = {}) {
+      const models = Array.isArray(usageModels) ? usageModels.map((model) => normalizeUsageModelKey(model)).filter(Boolean) : [];
+      if (!models.length || !edgeClient || !edgeClient.database) return [];
+      const dateKey = typeof effectiveDate === "string" && effectiveDate.trim() ? effectiveDate.trim() : (/* @__PURE__ */ new Date()).toISOString().slice(0, 10);
+      const query = edgeClient.database.from("vibescore_model_aliases").select("usage_model,canonical_model,display_name,effective_from").eq("active", true).in("usage_model", models).lte("effective_from", dateKey).order("effective_from", { ascending: true });
+      const result = await query;
+      const data = Array.isArray(result?.data) ? result.data : Array.isArray(query?.data) ? query.data : null;
+      if (!Array.isArray(data) || result?.error || query?.error) return [];
+      return data;
     }
     function formatTotals(entry, pricingProfile) {
       const totals = entry.totals;

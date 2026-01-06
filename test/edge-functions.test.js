@@ -2323,6 +2323,101 @@ test('vibeusage-usage-model-breakdown emits model_id and merges aliases', async 
   assert.ok(models.some((entry) => entry.model === 'GPT-4o'));
 });
 
+test('vibeusage-usage-model-breakdown honors alias effective_from across range', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-model-breakdown');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+
+  const hourlyRows = [
+    {
+      hour_start: '2025-01-15T00:00:00.000Z',
+      source: 'codex',
+      model: 'gpt-foo',
+      total_tokens: 100,
+      input_tokens: 60,
+      cached_input_tokens: 0,
+      output_tokens: 40,
+      reasoning_output_tokens: 0
+    },
+    {
+      hour_start: '2025-02-15T00:00:00.000Z',
+      source: 'codex',
+      model: 'gpt-foo',
+      total_tokens: 200,
+      input_tokens: 120,
+      cached_input_tokens: 0,
+      output_tokens: 80,
+      reasoning_output_tokens: 0
+    }
+  ];
+
+  const aliasRows = [
+    {
+      usage_model: 'gpt-foo',
+      canonical_model: 'alpha',
+      display_name: 'Alpha',
+      effective_from: '2025-01-01',
+      active: true
+    },
+    {
+      usage_model: 'gpt-foo',
+      canonical_model: 'beta',
+      display_name: 'Beta',
+      effective_from: '2025-02-01',
+      active: true
+    }
+  ];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibescore_tracker_hourly') {
+              return createQueryMock({ rows: hourlyRows });
+            }
+            if (table === 'vibescore_model_aliases') {
+              return createQueryMock({ rows: aliasRows });
+            }
+            if (table === 'vibescore_pricing_profiles') {
+              const query = createQueryMock({ rows: [] });
+              query.or = () => query;
+              query.limit = async () => ({ data: [], error: null });
+              return query;
+            }
+            if (table === 'vibescore_pricing_model_aliases') {
+              return createQueryMock({ rows: [] });
+            }
+            throw new Error(`Unexpected table ${table}`);
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-usage-model-breakdown?from=2025-01-01&to=2025-02-15',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const models = body.sources.flatMap((source) => source?.models || []);
+  const alpha = models.find((entry) => entry.model_id === 'alpha');
+  const beta = models.find((entry) => entry.model_id === 'beta');
+  assert.equal(alpha?.totals?.total_tokens, '100');
+  assert.equal(beta?.totals?.total_tokens, '200');
+});
+
 test('vibeusage-usage-daily canonical model filter includes alias rows', async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
 
