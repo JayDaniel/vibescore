@@ -219,6 +219,32 @@ var require_model = __commonJS({
       const candidate = slashIndex >= 0 ? lowered.slice(slashIndex + 1) : lowered;
       return candidate ? candidate : null;
     }
+    function escapeLike(value) {
+      return String(value).replace(/[\\%_]/g, "\\$&");
+    }
+    function applyUsageModelFilter2(query, usageModels) {
+      if (!query || typeof query.or !== "function") return query;
+      const models = Array.isArray(usageModels) ? usageModels : [];
+      const terms = [];
+      const seen = /* @__PURE__ */ new Set();
+      for (const model of models) {
+        const normalized = normalizeUsageModel(model);
+        if (!normalized) continue;
+        const safe = escapeLike(normalized);
+        const exact = `model.ilike.${safe}`;
+        const suffixed = `model.ilike.%/${safe}`;
+        if (!seen.has(exact)) {
+          seen.add(exact);
+          terms.push(exact);
+        }
+        if (!seen.has(suffixed)) {
+          seen.add(suffixed);
+          terms.push(suffixed);
+        }
+      }
+      if (terms.length === 0) return query;
+      return query.or(terms.join(","));
+    }
     function getModelParam2(url) {
       if (!url || typeof url.searchParams?.get !== "function") {
         return { ok: false, error: "Invalid request URL" };
@@ -233,6 +259,7 @@ var require_model = __commonJS({
     module2.exports = {
       normalizeModel,
       normalizeUsageModel,
+      applyUsageModelFilter: applyUsageModelFilter2,
       getModelParam: getModelParam2
     };
   }
@@ -1054,7 +1081,7 @@ var { handleOptions, json } = require_http();
 var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam } = require_source();
-var { getModelParam } = require_model();
+var { getModelParam, applyUsageModelFilter } = require_model();
 var { resolveUsageModelsForCanonical } = require_model_identity();
 var { applyCanaryFilter } = require_canary();
 var {
@@ -1146,7 +1173,7 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
       createQuery: () => {
         let query = auth2.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,model,total_tokens").eq("user_id", auth2.userId);
         if (source) query = query.eq("source", source);
-        if (hasModelFilter2) query = query.in("model", usageModels2);
+        if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
         query = applyCanaryFilter(query, { source, model: canonicalModel2 });
         return query.gte("hour_start", startIso2).lt("hour_start", endIso2).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
       },
@@ -1286,7 +1313,7 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
     createQuery: () => {
       let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,model,total_tokens").eq("user_id", auth.userId);
       if (source) query = query.eq("source", source);
-      if (hasModelFilter) query = query.in("model", usageModels);
+      if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
       query = applyCanaryFilter(query, { source, model: canonicalModel });
       return query.gte("hour_start", startIso).lt("hour_start", endIso).order("hour_start", { ascending: true }).order("device_id", { ascending: true }).order("source", { ascending: true }).order("model", { ascending: true });
     },

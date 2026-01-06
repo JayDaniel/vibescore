@@ -7,7 +7,7 @@ const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam, normalizeSource } = require('../shared/source');
-const { getModelParam, normalizeUsageModel } = require('../shared/model');
+const { getModelParam, normalizeUsageModel, applyUsageModelFilter } = require('../shared/model');
 const {
   applyModelIdentity,
   resolveModelIdentity,
@@ -182,7 +182,7 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
           )
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
-        if (hasModelFilter) query = query.in('model', usageModels);
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
         query = applyCanaryFilter(query, { source, model: canonicalModel });
         return query
           .gte('hour_start', rangeStartIso)
@@ -208,7 +208,7 @@ module.exports = withRequestLogging('vibescore-usage-summary', async function(re
       .select('hour_start')
       .eq('user_id', auth.userId);
     if (source) query = query.eq('source', source);
-    if (hasModelFilter) query = query.in('model', usageModels);
+    if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
     query = applyCanaryFilter(query, { source, model: canonicalModel });
     const { data, error } = await query
       .gte('hour_start', rangeStartIso)

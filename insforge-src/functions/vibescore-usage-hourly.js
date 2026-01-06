@@ -7,7 +7,7 @@ const { handleOptions, json } = require('../shared/http');
 const { getBearerToken, getEdgeClientAndUserIdFast } = require('../shared/auth');
 const { getBaseUrl } = require('../shared/env');
 const { getSourceParam } = require('../shared/source');
-const { getModelParam } = require('../shared/model');
+const { getModelParam, applyUsageModelFilter } = require('../shared/model');
 const { resolveUsageModelsForCanonical } = require('../shared/model-identity');
 const { applyCanaryFilter } = require('../shared/canary');
 const {
@@ -165,7 +165,7 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
           .select('hour_start,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
-        if (hasModelFilter) query = query.in('model', usageModels);
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
         query = applyCanaryFilter(query, { source, model: canonicalModel });
         return query
           .gte('hour_start', startIso)
@@ -276,7 +276,7 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
           .select('hour_start,model,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
-        if (hasModelFilter) query = query.in('model', usageModels);
+        if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
         query = applyCanaryFilter(query, { source, model: canonicalModel });
         return query
           .gte('hour_start', startIso)
@@ -430,7 +430,7 @@ async function tryAggregateHourlyTotals({ edgeClient, userId, startIso, endIso, 
       .eq('user_id', userId);
     if (source) query = query.eq('source', source);
     if (Array.isArray(usageModels) && usageModels.length > 0) {
-      query = query.in('model', usageModels);
+    query = applyUsageModelFilter(query, usageModels);
     }
     query = applyCanaryFilter(query, { source, model: canonicalModel });
     const { data, error } = await query.gte('hour_start', startIso).lt('hour_start', endIso).order('hour', { ascending: true });
