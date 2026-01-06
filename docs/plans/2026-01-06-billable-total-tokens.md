@@ -202,3 +202,4 @@ Record results in the delivery summary.
 
 - 2026-01-06: `node --test test/edge-functions.test.js --test-name-pattern "model-breakdown sorts"` -> PASS
 - 2026-01-06: `node --test test/rollout-parser.test.js --test-name-pattern "legacy file totals"` -> PASS
+- 2026-01-06: `node --test test/rollout-parser.test.js` -> PASS

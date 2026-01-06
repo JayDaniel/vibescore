@@ -326,10 +326,14 @@ async function parseOpencodeIncremental({ messageFiles, cursors, queuePath, onPr
       continue;
     }
 
+    const fallbackTotals = prev && typeof prev.lastTotals === 'object' ? prev.lastTotals : null;
+    const fallbackMessageKey =
+      prev && typeof prev.messageKey === 'string' && prev.messageKey.trim() ? prev.messageKey.trim() : null;
     const result = await parseOpencodeMessageFile({
       filePath,
       messageIndex,
-      legacyCursor: prev,
+      fallbackTotals,
+      fallbackMessageKey,
       hourlyState,
       touchedBuckets,
       source: fileSource
@@ -565,29 +569,46 @@ async function parseGeminiFile({
 async function parseOpencodeMessageFile({
   filePath,
   messageIndex,
-  legacyCursor,
+  fallbackTotals,
+  fallbackMessageKey,
   hourlyState,
   touchedBuckets,
   source
 }) {
+  const fallbackKey =
+    typeof fallbackMessageKey === 'string' && fallbackMessageKey.trim() ? fallbackMessageKey.trim() : null;
+  const legacyTotals = fallbackTotals && typeof fallbackTotals === 'object' ? fallbackTotals : null;
+  const fallbackEntry = messageIndex && fallbackKey ? messageIndex[fallbackKey] : null;
+  const fallbackLastTotals =
+    fallbackEntry && typeof fallbackEntry.lastTotals === 'object' ? fallbackEntry.lastTotals : legacyTotals;
+
   const raw = await fs.readFile(filePath, 'utf8').catch(() => '');
-  if (!raw.trim()) return { messageKey: null, lastTotals: null, eventsAggregated: 0, shouldUpdate: false };
+  if (!raw.trim()) {
+    return {
+      messageKey: fallbackKey,
+      lastTotals: fallbackLastTotals,
+      eventsAggregated: 0,
+      shouldUpdate: false
+    };
+  }
 
   let msg;
   try {
     msg = JSON.parse(raw);
   } catch (_e) {
-    return { messageKey: null, lastTotals: null, eventsAggregated: 0, shouldUpdate: false };
+    return {
+      messageKey: fallbackKey,
+      lastTotals: fallbackLastTotals,
+      eventsAggregated: 0,
+      shouldUpdate: false
+    };
   }
 
   const messageKey = deriveOpencodeMessageKey(msg, filePath);
   const prev = messageIndex && messageKey ? messageIndex[messageKey] : null;
   const indexTotals = prev && typeof prev.lastTotals === 'object' ? prev.lastTotals : null;
-  const legacyTotals =
-    legacyCursor && typeof legacyCursor.lastTotals === 'object' ? legacyCursor.lastTotals : null;
-  const legacyKey = legacyCursor && typeof legacyCursor.messageKey === 'string' ? legacyCursor.messageKey : null;
-  const legacyMatch = legacyKey ? legacyKey === messageKey : true;
-  const lastTotals = indexTotals || (legacyMatch ? legacyTotals : null);
+  const fallbackMatch = !fallbackKey || fallbackKey === messageKey;
+  const lastTotals = indexTotals || (fallbackMatch ? fallbackLastTotals : null);
 
   const currentTotals = normalizeOpencodeTokens(msg?.tokens);
   if (!currentTotals) {
@@ -601,13 +622,23 @@ async function parseOpencodeMessageFile({
 
   const timestampMs = coerceEpochMs(msg?.time?.completed) || coerceEpochMs(msg?.time?.created);
   if (!timestampMs) {
-    return { messageKey, lastTotals: currentTotals, eventsAggregated: 0, shouldUpdate: true };
+    return {
+      messageKey,
+      lastTotals,
+      eventsAggregated: 0,
+      shouldUpdate: Boolean(lastTotals)
+    };
   }
 
   const tsIso = new Date(timestampMs).toISOString();
   const bucketStart = toUtcHalfHourStart(tsIso);
   if (!bucketStart) {
-    return { messageKey, lastTotals: currentTotals, eventsAggregated: 0, shouldUpdate: true };
+    return {
+      messageKey,
+      lastTotals,
+      eventsAggregated: 0,
+      shouldUpdate: Boolean(lastTotals)
+    };
   }
 
   const model = normalizeModelInput(msg?.modelID || msg?.model || msg?.modelId) || DEFAULT_MODEL;

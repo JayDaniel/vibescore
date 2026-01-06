@@ -1,6 +1,7 @@
 create or replace function public.vibescore_rebuild_daily_rollup(p_from date, p_to date)
 returns void as $$
 begin
+  perform set_config('TimeZone', 'UTC', true);
   delete from public.vibescore_tracker_daily_rollup
   where day >= p_from and day <= p_to;
 
@@ -20,8 +21,8 @@ begin
     sum(coalesce(reasoning_output_tokens, 0))::bigint,
     now()
   from public.vibescore_tracker_hourly
-  where hour_start >= (p_from::timestamp at time zone 'UTC')
-    and hour_start < ((p_to + 1)::timestamp at time zone 'UTC')
+  where hour_start >= p_from::timestamptz
+    and hour_start < (p_to + 1)::timestamptz
   group by 1,2,3,4;
 end;
 $$ language plpgsql;
