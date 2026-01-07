@@ -450,10 +450,7 @@ var require_model = __commonJS({
       const normalized = normalizeModel(value);
       if (!normalized) return null;
       const lowered = normalized.toLowerCase();
-      if (!lowered) return null;
-      const slashIndex = lowered.lastIndexOf("/");
-      const candidate = slashIndex >= 0 ? lowered.slice(slashIndex + 1) : lowered;
-      return candidate ? candidate : null;
+      return lowered || null;
     }
     function escapeLike(value) {
       return String(value).replace(/[\\%_]/g, "\\$&");
@@ -468,14 +465,16 @@ var require_model = __commonJS({
         if (!normalized) continue;
         const safe = escapeLike(normalized);
         const exact = `model.ilike.${safe}`;
-        const suffixed = `model.ilike.%/${safe}`;
         if (!seen.has(exact)) {
           seen.add(exact);
           terms.push(exact);
         }
-        if (!seen.has(suffixed)) {
-          seen.add(suffixed);
-          terms.push(suffixed);
+        if (!normalized.includes("/")) {
+          const suffixed = `model.ilike.%/${safe}`;
+          if (!seen.has(suffixed)) {
+            seen.add(suffixed);
+            terms.push(suffixed);
+          }
         }
       }
       if (terms.length === 0) return query;
