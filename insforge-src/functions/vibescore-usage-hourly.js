@@ -188,7 +188,7 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
       createQuery: () => {
         let query = auth.edgeClient.database
           .from('vibescore_tracker_hourly')
-          .select('hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
+          .select('hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens')
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);
         if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
@@ -311,7 +311,7 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
         let query = auth.edgeClient.database
           .from('vibescore_tracker_hourly')
           .select(
-            'hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
+            'hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens'
           )
           .eq('user_id', auth.userId);
         if (source) query = query.eq('source', source);

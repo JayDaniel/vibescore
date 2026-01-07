@@ -1267,7 +1267,7 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
     let rowCount2 = 0;
     const { error: error2 } = await forEachPage({
       createQuery: () => {
-        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
+        let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select("hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens").eq("user_id", auth.userId);
         if (source) query = query.eq("source", source);
         if (hasModelFilter2) query = applyUsageModelFilter(query, usageModels2);
         query = applyCanaryFilter(query, { source, model: canonicalModel2 });
@@ -1368,7 +1368,7 @@ module.exports = withRequestLogging("vibescore-usage-hourly", async function(req
   const { error } = await forEachPage({
     createQuery: () => {
       let query = auth.edgeClient.database.from("vibescore_tracker_hourly").select(
-        "hour_start,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
+        "hour_start,model,source,billable_total_tokens,total_tokens,input_tokens,cached_input_tokens,output_tokens,reasoning_output_tokens"
       ).eq("user_id", auth.userId);
       if (source) query = query.eq("source", source);
       if (hasModelFilter) query = applyUsageModelFilter(query, usageModels);
