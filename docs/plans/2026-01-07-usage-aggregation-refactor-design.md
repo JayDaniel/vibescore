@@ -21,17 +21,16 @@ Unify usage aggregation logic across all usage endpoints by extracting a shared 
 - Aggregation must be single-pass over fetched rows.
 
 ## Proposed Design
-Introduce a shared aggregation module in `insforge-src/shared/usage-aggregate.js` that owns row-level aggregation rules and totals bookkeeping. Usage endpoints continue to fetch rows exactly as they do today and delegate row ingestion and totals construction to the shared module.
+Introduce a shared aggregation helper module in `insforge-src/shared/usage-aggregate.js` that centralizes billable resolution and totals bookkeeping. Usage endpoints continue to fetch rows exactly as they do today and delegate row-level billable handling to the shared helpers while keeping existing bucket maps and response shapes.
 
-### Aggregator Interface (proposed)
-- `createState({ pricingMode })` returns a mutable aggregation state (totals, per-source buckets, per-model buckets).
-- `ingestRow({ state, row, source, model, dateKey })` applies billable rules and updates totals/buckets in a single pass.
-- `finalize({ state })` returns totals and bucket views in the same shapes expected by endpoints.
+### Aggregation Helper Interface
+- `resolveBillableTotals({ row, source, billableField, totals, hasStoredBillable })` returns `{ billable, hasStoredBillable }` using stored billable when available or derived billable when missing.
+- `applyTotalsAndBillable({ totals, row, billable, hasStoredBillable })` applies `addRowTotals` and updates `billable_total_tokens` when stored billable is missing.
 
 ### Data Flow
 1. Endpoint builds query as today and pages through rows.
-2. Each row is passed to `ingestRow` exactly once.
-3. Endpoint formats totals/buckets from `finalize` and returns the existing response shape.
+2. Each row calls `resolveBillableTotals` and uses `applyTotalsAndBillable` for totals.
+3. Endpoint formats totals/buckets and returns the existing response shape.
 
 ## Error Handling
 - Query errors remain handled at the endpoint layer.
