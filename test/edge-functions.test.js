@@ -4026,6 +4026,76 @@ test('vibeusage-usage-daily canonical model filter includes alias rows', async (
   assert.equal(body.model, 'GPT-4o');
 });
 
+test('vibeusage-usage-daily prefixed model filter includes alias rows', async () => {
+  const fn = require('../insforge-functions/vibeusage-usage-daily');
+
+  const userId = '99999999-9999-9999-9999-999999999999';
+  const userJwt = 'user_jwt_test';
+
+  const hourlyRows = [
+    {
+      hour_start: '2025-01-01T00:00:00.000Z',
+      source: 'codex',
+      model: 'aws/gpt-4o',
+      total_tokens: 50,
+      input_tokens: 30,
+      cached_input_tokens: 0,
+      output_tokens: 20,
+      reasoning_output_tokens: 0
+    }
+  ];
+
+  const aliasRows = [
+    {
+      usage_model: 'aws/gpt-4o',
+      canonical_model: 'gpt-4o',
+      display_name: 'GPT-4o',
+      effective_from: '2025-01-01',
+      active: true
+    }
+  ];
+
+  const filters = [];
+
+  globalThis.createClient = (args) => {
+    if (args && args.edgeFunctionToken === userJwt) {
+      return {
+        auth: {
+          getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+        },
+        database: {
+          from: (table) => {
+            if (table === 'vibescore_tracker_hourly') {
+              return createQueryMock({ rows: hourlyRows, onFilter: (entry) => filters.push(entry) });
+            }
+            if (table === 'vibescore_model_aliases') {
+              return createQueryMock({ rows: aliasRows });
+            }
+            throw new Error(`Unexpected table ${table}`);
+          }
+        }
+      };
+    }
+    throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+  };
+
+  const req = new Request(
+    'http://localhost/functions/vibeusage-usage-daily?from=2025-01-01&to=2025-01-01&model=aws/gpt-4o',
+    {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${userJwt}` }
+    }
+  );
+
+  const res = await fn(req);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  const filterCalls = filters.filter((entry) => entry.op === 'or');
+  assert.ok(filterCalls.length > 0);
+  assert.ok(filterCalls.some((entry) => entry.value?.includes?.('model.ilike.aws/gpt-4o')));
+  assert.equal(body.summary.totals.total_tokens, '50');
+});
+
 test('vibeusage-usage-daily honors alias effective_from across range', async () => {
   const fn = require('../insforge-functions/vibeusage-usage-daily');
 

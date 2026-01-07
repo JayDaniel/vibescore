@@ -1550,7 +1550,13 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
             const rawModel = normalizeUsageModel(row?.model);
             const dateKey = extractDateKey(ts) || to;
             const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-            if (identity.model_id !== canonicalModel) continue;
+            const filterIdentity = resolveIdentityAtDate({
+              rawModel: canonicalModel,
+              usageKey: canonicalModel,
+              dateKey,
+              timeline: aliasTimeline
+            });
+            if (identity.model_id !== filterIdentity.model_id) continue;
           }
           const day = formatLocalDateKey(dt, tzContext);
           const bucket = buckets.get(day);
@@ -1598,7 +1604,13 @@ module.exports = withRequestLogging("vibescore-usage-daily", async function(requ
           const rawModel = normalizeUsageModel(row?.model);
           const dateKey = extractDateKey(day) || to;
           const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          if (identity.model_id !== canonicalModel) continue;
+          const filterIdentity = resolveIdentityAtDate({
+            rawModel: canonicalModel,
+            usageKey: canonicalModel,
+            dateKey,
+            timeline: aliasTimeline
+          });
+          if (identity.model_id !== filterIdentity.model_id) continue;
         }
         bucket.total += toBigInt(row?.total_tokens);
         const billable = ingestRow(row);

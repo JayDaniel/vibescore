@@ -1214,7 +1214,13 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
             const rawModel = normalizeUsageModel(row?.model);
             const dateKey = extractDateKey(ts) || to2;
             const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline2 });
-            if (identity.model_id !== canonicalModel2) continue;
+            const filterIdentity = resolveIdentityAtDate({
+              rawModel: canonicalModel2,
+              usageKey: canonicalModel2,
+              dateKey,
+              timeline: aliasTimeline2
+            });
+            if (identity.model_id !== filterIdentity.model_id) continue;
           }
           const day = formatDateUTC(dt);
           const prev = valuesByDay2.get(day) || 0n;
@@ -1359,7 +1365,13 @@ module.exports = withRequestLogging("vibescore-usage-heatmap", async function(re
           const rawModel = normalizeUsageModel(row?.model);
           const dateKey = extractDateKey(ts) || to;
           const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          if (identity.model_id !== canonicalModel) continue;
+          const filterIdentity = resolveIdentityAtDate({
+            rawModel: canonicalModel,
+            usageKey: canonicalModel,
+            dateKey,
+            timeline: aliasTimeline
+          });
+          if (identity.model_id !== filterIdentity.model_id) continue;
         }
         const key = formatLocalDateKey(dt, tzContext);
         const prev = valuesByDay.get(key) || 0n;

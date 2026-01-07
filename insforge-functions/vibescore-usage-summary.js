@@ -1503,7 +1503,13 @@ module.exports = withRequestLogging("vibescore-usage-summary", async function(re
       dateKey,
       timeline: aliasTimeline
     });
-    return identity.model_id === canonicalModel;
+    const filterIdentity = resolveIdentityAtDate({
+      rawModel: canonicalModel,
+      usageKey: canonicalModel,
+      dateKey,
+      timeline: aliasTimeline
+    });
+    return identity.model_id === filterIdentity.model_id;
   };
   const ingestRow = (row) => {
     if (!shouldIncludeRow(row)) return;

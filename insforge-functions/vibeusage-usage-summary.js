@@ -1506,7 +1506,13 @@ var require_vibescore_usage_summary = __commonJS({
           dateKey,
           timeline: aliasTimeline
         });
-        return identity.model_id === canonicalModel;
+        const filterIdentity = resolveIdentityAtDate({
+          rawModel: canonicalModel,
+          usageKey: canonicalModel,
+          dateKey,
+          timeline: aliasTimeline
+        });
+        return identity.model_id === filterIdentity.model_id;
       };
       const ingestRow = (row) => {
         if (!shouldIncludeRow(row)) return;

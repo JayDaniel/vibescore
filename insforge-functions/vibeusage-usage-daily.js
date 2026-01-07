@@ -1553,7 +1553,13 @@ var require_vibescore_usage_daily = __commonJS({
                 const rawModel = normalizeUsageModel(row?.model);
                 const dateKey = extractDateKey(ts) || to;
                 const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-                if (identity.model_id !== canonicalModel) continue;
+                const filterIdentity = resolveIdentityAtDate({
+                  rawModel: canonicalModel,
+                  usageKey: canonicalModel,
+                  dateKey,
+                  timeline: aliasTimeline
+                });
+                if (identity.model_id !== filterIdentity.model_id) continue;
               }
               const day = formatLocalDateKey(dt, tzContext);
               const bucket = buckets.get(day);
@@ -1601,7 +1607,13 @@ var require_vibescore_usage_daily = __commonJS({
               const rawModel = normalizeUsageModel(row?.model);
               const dateKey = extractDateKey(day) || to;
               const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-              if (identity.model_id !== canonicalModel) continue;
+              const filterIdentity = resolveIdentityAtDate({
+                rawModel: canonicalModel,
+                usageKey: canonicalModel,
+                dateKey,
+                timeline: aliasTimeline
+              });
+              if (identity.model_id !== filterIdentity.model_id) continue;
             }
             bucket.total += toBigInt(row?.total_tokens);
             const billable = ingestRow(row);

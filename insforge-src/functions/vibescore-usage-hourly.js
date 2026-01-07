@@ -213,7 +213,13 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
           const rawModel = normalizeUsageModel(row?.model);
           const dateKey = extractDateKey(ts) || dayLabel;
           const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          if (identity.model_id !== canonicalModel) continue;
+          const filterIdentity = resolveIdentityAtDate({
+            rawModel: canonicalModel,
+            usageKey: canonicalModel,
+            dateKey,
+            timeline: aliasTimeline
+          });
+          if (identity.model_id !== filterIdentity.model_id) continue;
         }
           const hour = dt.getUTCHours();
           const minute = dt.getUTCMinutes();
@@ -337,7 +343,13 @@ module.exports = withRequestLogging('vibescore-usage-hourly', async function(req
           const rawModel = normalizeUsageModel(row?.model);
           const dateKey = extractDateKey(ts) || dayKey;
           const identity = resolveIdentityAtDate({ rawModel, dateKey, timeline: aliasTimeline });
-          if (identity.model_id !== canonicalModel) continue;
+          const filterIdentity = resolveIdentityAtDate({
+            rawModel: canonicalModel,
+            usageKey: canonicalModel,
+            dateKey,
+            timeline: aliasTimeline
+          });
+          if (identity.model_id !== filterIdentity.model_id) continue;
         }
         const localParts = getLocalParts(dt, tzContext);
         const localDay = formatDateParts(localParts);
