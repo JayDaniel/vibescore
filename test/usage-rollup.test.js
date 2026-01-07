@@ -21,12 +21,14 @@ function buildRows(count) {
 function createEdgeClient(rows) {
   const stats = {
     rangeCalls: 0,
-    orderCalls: []
+    orderCalls: [],
+    selectCalls: []
   };
 
   const createQuery = () => {
     const query = {
-      select() {
+      select(columns) {
+        stats.selectCalls.push(columns);
         return query;
       },
       eq() {
@@ -102,4 +104,23 @@ test('fetchRollupRows orders by day, source, model for deterministic pagination'
   assert.equal(result.ok, true);
   assert.ok(stats.orderCalls.length >= 3, 'expected multiple order calls');
   assert.deepEqual(stats.orderCalls.slice(0, 3), ['day', 'source', 'model']);
+});
+
+test('fetchRollupRows selects billable_total_tokens from rollup table', async () => {
+  const rows = buildRows(1);
+  const { edgeClient, stats } = createEdgeClient(rows);
+
+  const result = await fetchRollupRows({
+    edgeClient,
+    userId: 'user_123',
+    fromDay: '2025-01-01',
+    toDay: '2025-12-31'
+  });
+
+  assert.equal(result.ok, true);
+  assert.ok(stats.selectCalls.length > 0, 'expected select call');
+  assert.ok(
+    String(stats.selectCalls[0]).includes('billable_total_tokens'),
+    'expected billable_total_tokens in select columns'
+  );
 });
