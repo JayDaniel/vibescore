@@ -95,19 +95,10 @@ async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
 async function getAccessContext({ baseUrl, bearer, allowPublic = false }) {
   if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
 
-  const payload = decodeJwtPayload(bearer);
-  if (payload) {
-    const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
-    if (auth.ok) {
-      return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: 'user' };
-    }
-    if (!allowPublic) {
-      return { ok: false, edgeClient: null, userId: null, accessType: null };
-    }
-  } else if (!allowPublic) {
-    return { ok: false, edgeClient: null, userId: null, accessType: null };
+  const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+  if (auth.ok) {
+    return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: 'user' };
   }
-
   if (!allowPublic) {
     return { ok: false, edgeClient: null, userId: null, accessType: null };
   }

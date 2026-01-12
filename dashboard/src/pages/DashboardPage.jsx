@@ -145,13 +145,14 @@ export function DashboardPage({
   }, []);
 
   useEffect(() => {
-    if (!signedIn || mockEnabled || publicMode) {
+    if (!signedIn || mockEnabled) {
       setLinkCode(null);
       setLinkCodeExpiresAt(null);
       setLinkCodeLoading(false);
       setLinkCodeError(null);
       return;
     }
+    if (publicMode) return;
     let active = true;
     setLinkCodeLoading(true);
     setLinkCodeError(null);
@@ -1069,8 +1070,8 @@ export function DashboardPage({
     return <BootScreen onSkip={() => setBooted(true)} />;
   }
 
-  const requireAuthGate =
-    !publicMode && !signedIn && !mockEnabled && !sessionExpired;
+  const requireAuthGate = !signedIn && !mockEnabled && !sessionExpired;
+  const showAuthGate = requireAuthGate && !publicMode;
 
   return (
     <>
@@ -1138,7 +1139,7 @@ export function DashboardPage({
             </AsciiBox>
           </div>
         ) : null}
-        {requireAuthGate ? (
+        {showAuthGate ? (
           <div className="flex items-center justify-center">
             <AsciiBox
               title={copy("dashboard.auth_required.title")}
