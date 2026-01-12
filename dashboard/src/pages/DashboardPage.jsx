@@ -120,6 +120,7 @@ export function DashboardPage({
   const [linkCodeError, setLinkCodeError] = useState(null);
   const [linkCodeExpiryTick, setLinkCodeExpiryTick] = useState(0);
   const [linkCodeRefreshToken, setLinkCodeRefreshToken] = useState(0);
+  const [publicViewEnabled, setPublicViewEnabled] = useState(false);
   const [publicViewToken, setPublicViewToken] = useState(null);
   const [publicViewLoading, setPublicViewLoading] = useState(false);
   const [publicViewActionLoading, setPublicViewActionLoading] = useState(false);
@@ -199,6 +200,7 @@ export function DashboardPage({
 
   useEffect(() => {
     if (!signedIn || mockEnabled || publicMode) {
+      setPublicViewEnabled(false);
       setPublicViewToken(null);
       setPublicViewLoading(false);
       setPublicViewActionLoading(false);
@@ -210,12 +212,15 @@ export function DashboardPage({
     getPublicViewStatus({ baseUrl, accessToken: auth?.accessToken || null })
       .then((data) => {
         if (!active) return;
+        const enabled = Boolean(data?.enabled);
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
+        setPublicViewEnabled(enabled);
         setPublicViewToken(token);
       })
       .catch(() => {
         if (!active) return;
+        setPublicViewEnabled(false);
         setPublicViewToken(null);
       })
       .finally(() => {
@@ -931,7 +936,6 @@ export function DashboardPage({
   const publicViewRevokeLabel = copy("dashboard.public_view.action.revoke");
   const publicViewInvalidTitle = copy("dashboard.public_view.invalid.title");
   const publicViewInvalidBody = copy("dashboard.public_view.invalid.body");
-  const publicViewEnabled = Boolean(publicViewToken);
   const publicViewBusy = publicViewLoading || publicViewActionLoading;
   const publicViewStatusLabel = publicViewEnabled
     ? publicViewStatusEnabledLabel
@@ -983,6 +987,8 @@ export function DashboardPage({
       });
       const token =
         typeof data?.share_token === "string" ? data.share_token : null;
+      const enabled = Boolean(data?.enabled ?? token);
+      setPublicViewEnabled(enabled);
       setPublicViewToken(token);
     } catch (_err) {
       // ignore issue errors
@@ -999,6 +1005,7 @@ export function DashboardPage({
         baseUrl,
         accessToken: auth?.accessToken || null,
       });
+      setPublicViewEnabled(false);
       setPublicViewToken(null);
     } catch (_err) {
       // ignore revoke errors

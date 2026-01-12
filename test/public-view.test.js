@@ -42,3 +42,10 @@ test("share routes rewrite to share.html", () => {
   );
   assert.ok(hasShare);
 });
+
+test("public view edge functions are defined", () => {
+  const issueSrc = read("insforge-src/functions/vibescore-public-view-issue.js");
+  const revokeSrc = read("insforge-src/functions/vibescore-public-view-revoke.js");
+  assert.match(issueSrc, /public view/i);
+  assert.match(revokeSrc, /public view/i);
+});
