@@ -27,7 +27,9 @@ export function useAuth() {
 
   useEffect(() => {
     const path = window.location.pathname.replace(/\/+$/, "");
-    const isCallbackPath = path === "/auth/callback" || path === "";
+    // Insforge may redirect to a misspelled callback path.
+    const callbackPaths = new Set(["/auth/callback", "/auth/callbak", ""]);
+    const isCallbackPath = callbackPaths.has(path);
     if (!isCallbackPath) return;
 
     const params = new URLSearchParams(window.location.search);

@@ -1,5 +1,12 @@
 # Deployment Freeze Records
 
+## 2026-01-12-auth-callback-callbak
+- Scope: dashboard auth callback accepts `/auth/callbak` redirect typo
+- Change ID: `fix-auth-callback-callbak` (bug fix; no OpenSpec change)
+- Freeze artifact: dashboard build (`npm --prefix dashboard run build`)
+- Cold regression step: `node --test test/dashboard-session-expired-banner.test.js -t "callbak"`
+- Synthetic acceptance: `node --test test/dashboard-session-expired-banner.test.js -t "callbak"`
+
 ## 2025-12-31-add-ingest-guardrails
 - Scope: M1 logs for ingest/token/sync, ingest concurrency guard, canary probe, usage canary exclusion
 - Change ID: `2025-12-31-add-ingest-guardrails`

@@ -27,8 +27,13 @@ test("useAuth tracks sessionExpired and gates signedIn", () => {
 
 test("useAuth accepts auth callback on root path", () => {
   const src = read("dashboard/src/hooks/use-auth.js");
-  assert.match(src, /path\s*===\s*""/);
   assert.match(src, /\/auth\/callback/);
+  assert.match(src, /callbackPaths[\s\S]*""/);
+});
+
+test("useAuth accepts auth callback on callbak path", () => {
+  const src = read("dashboard/src/hooks/use-auth.js");
+  assert.match(src, /\/auth\/callbak/);
 });
 
 test("App routes LandingPage when signed out", () => {
