@@ -1,12 +1,11 @@
 # PR Template (Minimal)
 
 ## PR Goal (one sentence)
-Accept Insforge redirect typo /auth/callbak during dashboard auth callback.
+Revert /auth/callbak compatibility now that the correct redirect path is configured.
 
 ## Commit Narrative
-- fix(auth): accept /auth/callbak callback path
-- test(auth): cover callbak auth callback parsing
-- docs(freeze): record auth callback typo freeze gate
+- revert(auth): drop /auth/callbak callback path
+- test(auth): keep auth callback parsing regression coverage
 - docs(pr): record regression command and result
 
 ## Regression Test Gate
@@ -14,7 +13,7 @@ Accept Insforge redirect typo /auth/callbak during dashboard auth callback.
 - Auth callback parsing and session restore.
 
 ### Verification method (choose at least one)
-- [x] `node --test test/dashboard-session-expired-banner.test.js -t "callbak"` => PASS
+- [x] `node --test test/dashboard-session-expired-banner.test.js` => PASS
 
 ### Uncovered scope
 - Real Insforge login redirect in production.
