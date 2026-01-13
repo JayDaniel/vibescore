@@ -154,6 +154,11 @@ test("public view fetches profile avatar url", () => {
   assert.match(src, /avatar_url/);
 });
 
+test("public view identity card uses pixel avatar", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(src, /<IdentityCard[\s\S]*avatarUrl=\{null\}/);
+});
+
 test("public view clears profile state before fetching new token", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.match(

@@ -1245,7 +1245,7 @@ export function DashboardPage({
                 title={copy("dashboard.identity.title")}
                 subtitle={copy("dashboard.identity.subtitle")}
                 name={identityDisplayName}
-                avatarUrl={publicMode ? publicProfileAvatarUrl : null}
+                avatarUrl={null}
                 isPublic
                 rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
                 streakDays={activeDays}
