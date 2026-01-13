@@ -77,11 +77,64 @@ var require_env = __commonJS({
   }
 });
 
+// insforge-src/shared/crypto.js
+var require_crypto = __commonJS({
+  "insforge-src/shared/crypto.js"(exports2, module2) {
+    "use strict";
+    async function sha256Hex(input) {
+      const data = new TextEncoder().encode(input);
+      const hash = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, "0")).join("");
+    }
+    module2.exports = {
+      sha256Hex
+    };
+  }
+});
+
+// insforge-src/shared/public-view.js
+var require_public_view = __commonJS({
+  "insforge-src/shared/public-view.js"(exports2, module2) {
+    "use strict";
+    var { getAnonKey, getServiceRoleKey } = require_env();
+    var { sha256Hex } = require_crypto();
+    async function resolvePublicView({ baseUrl, shareToken }) {
+      const token = normalizeToken(shareToken);
+      if (!token) return { ok: false, edgeClient: null, userId: null };
+      const serviceRoleKey = getServiceRoleKey();
+      if (!serviceRoleKey) return { ok: false, edgeClient: null, userId: null };
+      const anonKey = getAnonKey();
+      const dbClient = createClient({
+        baseUrl,
+        anonKey: anonKey || serviceRoleKey,
+        edgeFunctionToken: serviceRoleKey
+      });
+      const tokenHash = await sha256Hex(token);
+      const { data, error } = await dbClient.database.from("vibescore_public_views").select("user_id").eq("token_hash", tokenHash).is("revoked_at", null).maybeSingle();
+      if (error || !data?.user_id) {
+        return { ok: false, edgeClient: null, userId: null };
+      }
+      return { ok: true, edgeClient: dbClient, userId: data.user_id };
+    }
+    function normalizeToken(value) {
+      if (typeof value !== "string") return null;
+      const token = value.trim();
+      if (!token) return null;
+      if (token.length > 256) return null;
+      return token;
+    }
+    module2.exports = {
+      resolvePublicView
+    };
+  }
+});
+
 // insforge-src/shared/auth.js
 var require_auth = __commonJS({
   "insforge-src/shared/auth.js"(exports2, module2) {
     "use strict";
     var { getAnonKey } = require_env();
+    var { resolvePublicView } = require_public_view();
     function getBearerToken2(headerValue) {
       if (!headerValue) return null;
       const prefix = "Bearer ";
@@ -149,7 +202,7 @@ var require_auth = __commonJS({
       if (userErr || !userId) return { ok: false, edgeClient: null, userId: null };
       return { ok: true, edgeClient, userId };
     }
-    async function getEdgeClientAndUserIdFast2({ baseUrl, bearer }) {
+    async function getEdgeClientAndUserIdFast({ baseUrl, bearer }) {
       const anonKey = getAnonKey();
       const edgeClient = createClient({ baseUrl, anonKey: anonKey || void 0, edgeFunctionToken: bearer });
       const payload = decodeJwtPayload(bearer);
@@ -161,10 +214,31 @@ var require_auth = __commonJS({
       if (userErr || !resolvedUserId) return { ok: false, edgeClient: null, userId: null };
       return { ok: true, edgeClient, userId: resolvedUserId };
     }
+    async function getAccessContext2({ baseUrl, bearer, allowPublic = false }) {
+      if (!bearer) return { ok: false, edgeClient: null, userId: null, accessType: null };
+      const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+      if (auth.ok) {
+        return { ok: true, edgeClient: auth.edgeClient, userId: auth.userId, accessType: "user" };
+      }
+      if (!allowPublic) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      const publicView = await resolvePublicView({ baseUrl, shareToken: bearer });
+      if (!publicView.ok) {
+        return { ok: false, edgeClient: null, userId: null, accessType: null };
+      }
+      return {
+        ok: true,
+        edgeClient: publicView.edgeClient,
+        userId: publicView.userId,
+        accessType: "public"
+      };
+    }
     module2.exports = {
       getBearerToken: getBearerToken2,
+      getAccessContext: getAccessContext2,
       getEdgeClientAndUserId,
-      getEdgeClientAndUserIdFast: getEdgeClientAndUserIdFast2,
+      getEdgeClientAndUserIdFast,
       isProjectAdminBearer
     };
   }
@@ -1398,7 +1472,7 @@ var require_debug = __commonJS({
 
 // insforge-src/functions/vibescore-usage-model-breakdown.js
 var { handleOptions, json } = require_http();
-var { getBearerToken, getEdgeClientAndUserIdFast } = require_auth();
+var { getBearerToken, getAccessContext } = require_auth();
 var { getBaseUrl } = require_env();
 var { getSourceParam, normalizeSource } = require_source();
 var { normalizeUsageModel } = require_model();
@@ -1445,7 +1519,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
   const bearer = getBearerToken(request.headers.get("Authorization"));
   if (!bearer) return respond({ error: "Missing bearer token" }, 401, 0);
   const baseUrl = getBaseUrl();
-  const auth = await getEdgeClientAndUserIdFast({ baseUrl, bearer });
+  const auth = await getAccessContext({ baseUrl, bearer, allowPublic: true });
   if (!auth.ok) return respond({ error: "Unauthorized" }, 401, 0);
   const tzContext = getUsageTimeZoneContext(url);
   const sourceResult = getSourceParam(url);
@@ -1526,6 +1600,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
   });
   const aliasTimeline = buildAliasTimeline({ usageModels, aliasRows });
   const sourcesMap = /* @__PURE__ */ new Map();
+  const costBuckets = /* @__PURE__ */ new Map();
   const canonicalModels = /* @__PURE__ */ new Set();
   const grandTotals = createTotals();
   for (const row of rowsBuffer) {
@@ -1544,11 +1619,50 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
     }
     const canonicalEntry = getCanonicalEntry(sourceEntry.models, identity);
     addTotals(canonicalEntry.totals, row);
+    const bucketModelId = identity?.model_id || DEFAULT_MODEL;
+    const bucketModelName = identity?.model || bucketModelId;
+    const bucketKey = buildCostBucketKey(row.source, bucketModelId, dateKey);
+    const bucket = costBuckets.get(bucketKey) || {
+      source: row.source,
+      model_id: bucketModelId,
+      model: bucketModelName,
+      dateKey,
+      totals: createTotals()
+    };
+    addTotals(bucket.totals, row);
+    costBuckets.set(bucketKey, bucket);
   }
-  const pricingModel = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
+  const pricingModes = /* @__PURE__ */ new Set();
+  const profileCache = /* @__PURE__ */ new Map();
+  const getProfile = async (modelId, dateKey) => {
+    const key = `${modelId || ""}::${dateKey || ""}`;
+    if (profileCache.has(key)) return profileCache.get(key);
+    const profile = await resolvePricingProfile({
+      edgeClient: auth.edgeClient,
+      model: modelId || null,
+      effectiveDate: dateKey || to
+    });
+    profileCache.set(key, profile);
+    return profile;
+  };
+  for (const bucket of costBuckets.values()) {
+    const profile = await getProfile(bucket.model_id, bucket.dateKey);
+    const cost = computeUsageCost(bucket.totals, profile);
+    pricingModes.add(cost.pricing_mode);
+    const sourceEntry = sourcesMap.get(bucket.source);
+    addCostMicros(sourceEntry, cost.cost_micros);
+    if (sourceEntry) {
+      const modelEntry = getCanonicalEntry(sourceEntry.models, {
+        model_id: bucket.model_id,
+        model: bucket.model
+      });
+      addCostMicros(modelEntry, cost.cost_micros);
+    }
+  }
+  const impliedModelId = canonicalModels.size === 1 ? Array.from(canonicalModels)[0] : null;
   const pricingProfile = await resolvePricingProfile({
     edgeClient: auth.edgeClient,
-    model: pricingModel,
+    model: impliedModelId,
     effectiveDate: to
   });
   const sources = Array.from(sourcesMap.values()).map((entry) => {
@@ -1561,6 +1675,12 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
     };
   }).sort((a, b) => a.source.localeCompare(b.source));
   const overallCost = computeUsageCost(grandTotals, pricingProfile);
+  let summaryPricingMode = overallCost.pricing_mode;
+  if (pricingModes.size === 1) {
+    summaryPricingMode = Array.from(pricingModes)[0];
+  } else if (pricingModes.size > 1) {
+    summaryPricingMode = "mixed";
+  }
   return respond(
     {
       from,
@@ -1569,7 +1689,7 @@ module.exports = withRequestLogging("vibescore-usage-model-breakdown", async fun
       sources,
       pricing: buildPricingMetadata({
         profile: overallCost.profile,
-        pricingMode: overallCost.pricing_mode
+        pricingMode: summaryPricingMode
       })
     },
     200,
@@ -1618,9 +1738,10 @@ function getCanonicalEntry(map, identity) {
 }
 function formatTotals(entry, pricingProfile) {
   const totals = entry.totals;
-  const cost = computeUsageCost(totals, pricingProfile);
+  const costMicros = resolveCostMicros(entry, pricingProfile);
+  const { cost_micros: _ignored, ...rest } = entry;
   return {
-    ...entry,
+    ...rest,
     totals: {
       total_tokens: totals.total_tokens.toString(),
       billable_total_tokens: totals.billable_total_tokens.toString(),
@@ -1628,7 +1749,7 @@ function formatTotals(entry, pricingProfile) {
       cached_input_tokens: totals.cached_input_tokens.toString(),
       output_tokens: totals.output_tokens.toString(),
       reasoning_output_tokens: totals.reasoning_output_tokens.toString(),
-      total_cost_usd: formatUsdFromMicros(cost.cost_micros)
+      total_cost_usd: formatUsdFromMicros(costMicros)
     }
   };
 }
@@ -1637,4 +1758,17 @@ function compareTotals(a, b) {
   const bSort = toBigInt(b?.totals?.billable_total_tokens ?? b?.totals?.total_tokens);
   if (aSort === bSort) return String(a?.model || "").localeCompare(String(b?.model || ""));
   return aSort > bSort ? -1 : 1;
+}
+function buildCostBucketKey(source, modelId, dateKey) {
+  return `${source || ""}::${modelId || ""}::${dateKey || ""}`;
+}
+function addCostMicros(entry, costMicros) {
+  if (!entry) return;
+  entry.cost_micros = toBigInt(entry.cost_micros) + toBigInt(costMicros);
+}
+function resolveCostMicros(entry, pricingProfile) {
+  if (!entry) return 0n;
+  if (typeof entry.cost_micros === "bigint") return entry.cost_micros;
+  const cost = computeUsageCost(entry.totals, pricingProfile);
+  return cost.cost_micros;
 }
