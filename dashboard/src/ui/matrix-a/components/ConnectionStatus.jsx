@@ -38,7 +38,7 @@ export function ConnectionStatus({
     <div
       title={title}
       className={[
-        "matrix-header-chip font-matrix transition-all duration-700",
+        "matrix-header-chip matrix-header-chip--bare font-matrix transition-all duration-700",
         current.color,
         className,
       ]

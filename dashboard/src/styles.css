@@ -77,6 +77,13 @@ body {
       bottom 6px right 6px;
   }
 
+  .matrix-header-chip--bare {
+    border: none;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+  }
+
   .matrix-header-chip--solid {
     background: var(--matrix-ink);
     border-color: var(--matrix-ink);

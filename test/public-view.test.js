@@ -128,6 +128,7 @@ test("connection status renders bracket indicator only", () => {
   assert.doesNotMatch(src, /onClick/);
   assert.doesNotMatch(src, /status\.link\./);
   assert.doesNotMatch(src, /rounded-full/);
+  assert.match(src, /matrix-header-chip--bare/);
 });
 
 test("public view invalid check handles string errors", () => {
