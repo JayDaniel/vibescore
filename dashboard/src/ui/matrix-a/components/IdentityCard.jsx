@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 import { copy } from "../../../lib/copy.js";
 import { AsciiBox } from "./AsciiBox.jsx";
@@ -7,6 +7,7 @@ import { ScrambleText } from "./ScrambleText.jsx";
 
 export function IdentityCard({
   name = copy("identity_card.name_default"),
+  avatarUrl,
   isPublic = false,
   onDecrypt,
   title = copy("identity_card.title_default"),
@@ -28,12 +29,19 @@ export function IdentityCard({
   const unknownLabel = copy("identity_card.unknown");
   const displayName = isPublic ? name : unknownLabel;
   const avatarName = isPublic ? name : unknownLabel;
+  const [avatarFailed, setAvatarFailed] = useState(false);
+  const safeAvatarUrl = typeof avatarUrl === "string" ? avatarUrl.trim() : "";
+  const showAvatar = isPublic && safeAvatarUrl && !avatarFailed;
   const rankValue = rankLabel ?? copy("identity_card.rank_placeholder");
   const streakValue = Number.isFinite(Number(streakDays))
     ? copy("identity_card.streak_value", { days: Number(streakDays) })
     : copy("identity_card.rank_placeholder");
   const shouldShowStats =
     showStats && (rankLabel !== undefined || streakDays !== undefined);
+
+  useEffect(() => {
+    setAvatarFailed(false);
+  }, [safeAvatarUrl]);
 
   const titleNode =
     typeof title === "string" && animateTitle ? (
@@ -60,11 +68,25 @@ export function IdentityCard({
         ) : null}
 
         <div className="relative z-10 flex items-center space-x-6 px-2">
-          <MatrixAvatar
-            name={avatarName}
-            isAnon={!isPublic}
-            size={avatarSize}
-          />
+          {showAvatar ? (
+            <div
+              style={{ width: avatarSize, height: avatarSize }}
+              className="relative p-1 bg-matrix-panelStrong border border-matrix-dim overflow-hidden"
+            >
+              <img
+                src={safeAvatarUrl}
+                alt={displayName}
+                className="w-full h-full object-cover"
+                onError={() => setAvatarFailed(true)}
+              />
+            </div>
+          ) : (
+            <MatrixAvatar
+              name={avatarName}
+              isAnon={!isPublic}
+              size={avatarSize}
+            />
+          )}
 
           <div className="flex-1 space-y-2">
             <div>

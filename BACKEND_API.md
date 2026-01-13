@@ -176,6 +176,25 @@ Notes:
 
 ---
 
+### GET /functions/vibeusage-public-view-profile
+
+Return privacy-safe profile fields for a public share token.
+
+Auth:
+- `Authorization: Bearer <share_token>`
+
+Response:
+
+```json
+{ "display_name": "string|null", "avatar_url": "string|null" }
+```
+
+Notes:
+- `display_name` is derived from user metadata and sanitized; email-like values are removed.
+- `avatar_url` is returned only for `http/https` URLs with length ≤ 1024; otherwise `null`.
+
+---
+
 ### POST /functions/vibeusage-ingest
 
 Ingest half-hour token usage aggregates from a device token idempotently.

@@ -16,6 +16,7 @@ import {
   toFiniteNumber,
 } from "../lib/format.js";
 import {
+  getPublicViewProfile,
   getPublicViewStatus,
   issuePublicViewToken,
   requestInstallLinkCode,
@@ -125,6 +126,8 @@ export function DashboardPage({
   const [publicViewLoading, setPublicViewLoading] = useState(false);
   const [publicViewActionLoading, setPublicViewActionLoading] = useState(false);
   const [publicViewCopied, setPublicViewCopied] = useState(false);
+  const [publicProfileName, setPublicProfileName] = useState(null);
+  const [publicProfileAvatarUrl, setPublicProfileAvatarUrl] = useState(null);
   const [compactSummary, setCompactSummary] = useState(() => {
     if (typeof window === "undefined" || !window.matchMedia) return false;
     return window.matchMedia("(max-width: 640px)").matches;
@@ -219,6 +222,40 @@ export function DashboardPage({
       active = false;
     };
   }, [baseUrl, mockEnabled, signedIn, publicMode, auth?.accessToken]);
+
+  useEffect(() => {
+    if (!publicMode) {
+      setPublicProfileName(null);
+      setPublicProfileAvatarUrl(null);
+      return;
+    }
+    if (!publicToken) {
+      setPublicProfileName(null);
+      setPublicProfileAvatarUrl(null);
+      return;
+    }
+    setPublicProfileName(null);
+    setPublicProfileAvatarUrl(null);
+    let active = true;
+    getPublicViewProfile({ baseUrl, accessToken: publicToken })
+      .then((data) => {
+        if (!active) return;
+        setPublicProfileName(
+          typeof data?.display_name === "string" ? data.display_name : null
+        );
+        setPublicProfileAvatarUrl(
+          typeof data?.avatar_url === "string" ? data.avatar_url : null
+        );
+      })
+      .catch(() => {
+        if (!active) return;
+        setPublicProfileName(null);
+        setPublicProfileAvatarUrl(null);
+      });
+    return () => {
+      active = false;
+    };
+  }, [baseUrl, publicMode, publicToken]);
 
   const linkCodeExpired = useMemo(() => {
     if (!linkCodeExpiresAt) return false;
@@ -592,6 +629,10 @@ export function DashboardPage({
     if (typeof auth?.name !== "string") return "";
     return auth.name.trim();
   }, [auth?.name]);
+  const publicIdentityName = useMemo(() => {
+    if (typeof publicProfileName !== "string") return "";
+    return publicProfileName.trim();
+  }, [publicProfileName]);
 
   const identityLabel = useMemo(() => {
     if (!identityRawName || identityRawName.includes("@")) {
@@ -605,9 +646,11 @@ export function DashboardPage({
   }, [identityLabel]);
 
   const identityDisplayName = useMemo(() => {
-    if (publicMode) return identityRawName || copy("dashboard.identity.fallback");
+    if (publicMode) {
+      return publicIdentityName || copy("dashboard.identity.fallback");
+    }
     return identityHandle;
-  }, [identityHandle, identityRawName, publicMode]);
+  }, [identityHandle, publicIdentityName, publicMode]);
   const identityStartDate = useMemo(() => {
     let earliest = null;
 
@@ -1202,6 +1245,7 @@ export function DashboardPage({
                 title={copy("dashboard.identity.title")}
                 subtitle={copy("dashboard.identity.subtitle")}
                 name={identityDisplayName}
+                avatarUrl={publicMode ? publicProfileAvatarUrl : null}
                 isPublic
                 rankLabel={identityStartDate ?? copy("identity_card.rank_placeholder")}
                 streakDays={activeDays}

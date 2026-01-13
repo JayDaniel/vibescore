@@ -25,6 +25,7 @@ const PATHS = {
   publicViewStatus: "vibeusage-public-view-status",
   publicViewIssue: "vibeusage-public-view-issue",
   publicViewRevoke: "vibeusage-public-view-revoke",
+  publicViewProfile: "vibeusage-public-view-profile",
 };
 
 const FUNCTION_PREFIX = "/functions";
@@ -216,6 +217,14 @@ export async function getPublicViewStatus({ baseUrl, accessToken } = {}) {
     baseUrl,
     accessToken,
     slug: PATHS.publicViewStatus,
+  });
+}
+
+export async function getPublicViewProfile({ baseUrl, accessToken } = {}) {
+  return requestJson({
+    baseUrl,
+    accessToken,
+    slug: PATHS.publicViewProfile,
   });
 }
 

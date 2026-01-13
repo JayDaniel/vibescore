@@ -70,6 +70,27 @@ test("public view edge functions are defined", () => {
   assert.match(revokeSrc, /public view/i);
 });
 
+test("public view profile edge function is defined", () => {
+  const profileSrc = read(
+    "insforge-src/functions/vibescore-public-view-profile.js"
+  );
+  assert.match(profileSrc, /public[- ]view[- ]profile/i);
+});
+
+test("public view profile returns avatar url", () => {
+  const profileSrc = read(
+    "insforge-src/functions/vibescore-public-view-profile.js"
+  );
+  assert.match(profileSrc, /avatar_url/);
+});
+
+test("public view profile does not select user_metadata", () => {
+  const profileSrc = read(
+    "insforge-src/functions/vibescore-public-view-profile.js"
+  );
+  assert.doesNotMatch(profileSrc, /user_metadata/);
+});
+
 test("public view panel does not render share link text", () => {
   const src = read("dashboard/src/pages/DashboardPage.jsx");
   assert.doesNotMatch(
@@ -111,7 +132,33 @@ test("public view uses raw identity name", () => {
   );
   assert.ok(block, "identity display block not found");
   assert.match(block, /publicMode/);
-  assert.match(block, /auth\?\.name/);
+  assert.match(block, /publicProfileName/);
+});
+
+test("public view fetches profile display name", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(src, /getPublicViewProfile/);
+  assert.match(src, /publicProfileName/);
+});
+
+test("public view fetches profile avatar url", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(src, /publicProfileAvatarUrl/);
+  assert.match(src, /avatar_url/);
+});
+
+test("public view clears profile state before fetching new token", () => {
+  const src = read("dashboard/src/pages/DashboardPage.jsx");
+  assert.match(
+    src,
+    /if\s*\(!publicToken\)\s*\{[\s\S]*?\}\s*setPublicProfileName\(null\);\s*setPublicProfileAvatarUrl\(null\);\s*let active = true;\s*getPublicViewProfile/s
+  );
+});
+
+test("identity card supports avatar fallback", () => {
+  const src = read("dashboard/src/ui/matrix-a/components/IdentityCard.jsx");
+  assert.match(src, /avatarUrl/);
+  assert.match(src, /onError/);
 });
 
 test("public view copy issues a token when missing", () => {
