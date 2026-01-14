@@ -25,6 +25,7 @@ When NOT to use:
 4) **Classify**: Assign primary + secondary stage causes.
 5) **Abstract**: Roll causes into a stable taxonomy.
 6) **Aggregate**: Summarize causes across frontend/backends.
+7) **Prevent**: Enforce the PR template risk-layer gate before any future @codex review.
 
 ## Quick Reference
 | Item | Rule |
@@ -34,6 +35,7 @@ When NOT to use:
 | Stage attribution | design / implementation / testing / review packaging / release |
 | Mixed PR | record both frontend and backend impact |
 | Noise guard | if Codex comments are generic, mark low-signal |
+| Risk-layer gate | if any trigger matches, fill the addendum before @codex review |
 
 ## Stage Taxonomy (Definition)
 - **Design**: missing requirements, unclear acceptance criteria, privacy/exposure gaps, cross-endpoint invariants not specified.
@@ -67,6 +69,12 @@ Then isolate Codex Cloud feedback per PR:
 gh pr view <num> --json reviews,comments --jq '(.reviews + .comments) | map(select(.author.login == "chatgpt-codex-connector"))'
 ```
 
+## Risk-Layer Gate (Preventive)
+Before requesting @codex review, check `.github/PULL_REQUEST_TEMPLATE.md`:
+- If any **Risk Layer Trigger** is checked, you MUST fill the **Risk Layer Addendum**.
+- Provide rules/invariants, boundary matrix (>=3), and evidence (tests or repro).
+- Summarize these items in **Codex Context** so Codex sees the delta clearly.
+
 ## Evidence Rules
 - Each PR must cite at least 1 evidence item.
 - If Codex feedback is generic, mark **low-signal** and rely on follow-up fixes or PR gate docs.
@@ -77,6 +85,7 @@ gh pr view <num> --json reviews,comments --jq '(.reviews + .comments) | map(sele
 - Ignoring PR context quality (tests, spec links, repro steps).
 - Mixing symptoms (bug) with stage cause (missing invariant).
 - Skipping frontend/backend split on mixed PRs.
+- Triggering @codex review without completing the risk-layer addendum.
 
 ## Rationalization Table
 | Excuse | Reality |
@@ -85,6 +94,7 @@ gh pr view <num> --json reviews,comments --jq '(.reviews + .comments) | map(sele
 | "Review cycles are enough" | Cycles show churn, not cause. Evidence is required. |
 | "Titles explain the issue" | Titles are symptoms, not root causes. |
 | "We fixed it later, so root cause is obvious" | Fixes show symptom; stage attribution still required. |
+| "Template is optional" | Risk-layer addendum is mandatory when any trigger matches. |
 
 ## Red Flags - STOP
 - No evidence chain from Codex feedback to code change.
