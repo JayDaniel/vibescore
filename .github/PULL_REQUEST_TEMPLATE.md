@@ -10,6 +10,22 @@
 - **Tests run (command + result):**
 - **Known gaps / out of scope:**
 
+## Risk Layer Trigger (if any)
+- [ ] Public exposure / share links / unauthenticated access
+- [ ] Auth/session/token handling
+- [ ] Cross-endpoint invariants or shared logic
+- [ ] External gateway / environment constraints
+
+## Risk Layer Addendum (fill ONLY if any trigger checked)
+### Rules / Invariants
+- 
+
+### Boundary Matrix (must list at least 3)
+- 
+
+### Evidence (tests or repro)
+- 
+
 ## Public Exposure Checklist (if applicable)
 - [ ] Public access rules defined (share token required, non-JWT handling, 401 behavior)
 - [ ] Exposed fields explicitly listed and verified
