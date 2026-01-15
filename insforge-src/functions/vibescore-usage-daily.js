@@ -160,7 +160,7 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
     if (!hasModelParam && pricingBuckets) {
       const usageKey = normalizeUsageModelKey(normalizedModel) || DEFAULT_MODEL;
       const dateKey = extractDateKey(row?.hour_start || row?.day) || to;
-      const bucketKey = `${sourceKey}${PRICING_BUCKET_SEP}${usageKey}${PRICING_BUCKET_SEP}${dateKey}`;
+      const bucketKey = buildPricingBucketKey(sourceKey, usageKey, dateKey);
       const bucket = pricingBuckets.get(bucketKey) || createTotals();
       addRowTotals(bucket, row);
       pricingBuckets.set(bucketKey, bucket);
@@ -362,19 +362,7 @@ module.exports = withRequestLogging('vibescore-usage-daily', async function(requ
       };
 
       for (const [bucketKey, bucketTotals] of pricingBuckets.entries()) {
-        const parts = bucketKey.split(PRICING_BUCKET_SEP);
-        let usageKey = null;
-        let dateKey = null;
-        if (parts.length >= 3) {
-          usageKey = parts[1];
-          dateKey = parts[2];
-        } else if (parts.length === 2) {
-          usageKey = parts[0];
-          dateKey = parts[1];
-        } else {
-          usageKey = bucketKey;
-        }
-        if (!dateKey) dateKey = to;
+        const { usageKey, dateKey } = parsePricingBucketKey(bucketKey, to);
         const identity = resolveIdentityAtDate({
           usageKey,
           dateKey,
@@ -480,4 +468,42 @@ function resolveDisplayName(identityMap, modelId) {
     if (entry?.model_id === modelId && entry?.model) return entry.model;
   }
   return modelId;
+}
+
+function buildPricingBucketKey(sourceKey, usageKey, dateKey) {
+  return JSON.stringify([sourceKey || '', usageKey || '', dateKey || '']);
+}
+
+function parsePricingBucketKey(bucketKey, defaultDate) {
+  if (typeof bucketKey === 'string' && bucketKey.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(bucketKey);
+      if (Array.isArray(parsed)) {
+        const usageKey = parsed[1] ?? parsed[0] ?? '';
+        const dateKey = parsed[2] ?? defaultDate;
+        return {
+          usageKey: String(usageKey || ''),
+          dateKey: String(dateKey || defaultDate)
+        };
+      }
+    } catch (_e) {
+      // fall through to legacy parsing
+    }
+  }
+  if (typeof bucketKey === 'string') {
+    const parts = bucketKey.split(PRICING_BUCKET_SEP);
+    let usageKey = null;
+    let dateKey = null;
+    if (parts.length >= 3) {
+      usageKey = parts[1];
+      dateKey = parts[2];
+    } else if (parts.length === 2) {
+      usageKey = parts[0];
+      dateKey = parts[1];
+    } else {
+      usageKey = bucketKey;
+    }
+    return { usageKey, dateKey: dateKey || defaultDate };
+  }
+  return { usageKey: bucketKey, dateKey: defaultDate };
 }

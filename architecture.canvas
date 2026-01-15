@@ -508,7 +508,7 @@
     {
       "id": "test_edge-functions_test_deffefcc",
       "type": "text",
-      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (5844 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
+      "text": "**edge-functions.test**\n`test/edge-functions.test.js`\n\nTest module.\n\n包含：\n- edge-functions.test (5982 行)\n- toBase64Url (1 个参数)\n\n依赖：3 个模块\n被依赖：0 次",
       "x": 460,
       "y": 11212,
       "width": 280,
@@ -2253,7 +2253,7 @@
     {
       "id": "edge-function_vibescore-usage-daily_13bc8f2d",
       "type": "text",
-      "text": "**vibescore-usage-daily**\n`insforge-src/functions/vibescore-usage-daily.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-daily (484 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-daily**\n`insforge-src/functions/vibescore-usage-daily.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-daily (510 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 2980,
       "y": 4936,
       "width": 280,
@@ -2338,7 +2338,7 @@
     {
       "id": "edge-function_vibescore-usage-summary_57a00ab8",
       "type": "text",
-      "text": "**vibescore-usage-summary**\n`insforge-src/functions/vibescore-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-summary (505 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
+      "text": "**vibescore-usage-summary**\n`insforge-src/functions/vibescore-usage-summary.js`\n\nEdge function handler.\n\n包含：\n- vibescore-usage-summary (531 行)\n- getSourceEntry (2 个参数)\n\n依赖：0 个模块\n被依赖：0 次",
       "x": 1540,
       "y": 5296,
       "width": 280,
