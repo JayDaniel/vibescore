@@ -9,6 +9,7 @@ Adopt InsForge hosted auth routes and SDK-managed session gating for the dashboa
 - feat(auth): route landing to hosted auth
 - chore(dashboard): add insforge react-router deps
 - feat(auth): gate dashboard by insforge session
+- fix(auth): pass insforge baseUrl to hosted routes
 
 ## Regression Test Gate
 ### Most likely regression surface
