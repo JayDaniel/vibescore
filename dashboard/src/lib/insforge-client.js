@@ -1,6 +1,6 @@
 import { createClient } from "@insforge/sdk";
 
-import { getInsforgeAnonKey } from "./config.js";
+import { getInsforgeAnonKey, getInsforgeBaseUrl } from "./config.js";
 import { createTimeoutFetch } from "./http-timeout.js";
 
 function createMemoryStorage() {
@@ -27,5 +27,15 @@ export function createInsforgeClient({ baseUrl, accessToken } = {}) {
     edgeFunctionToken: accessToken || undefined,
     storage: createMemoryStorage(),
     fetch: createTimeoutFetch(globalThis.fetch),
+  });
+}
+
+export function createInsforgeAuthClient() {
+  const baseUrl = getInsforgeBaseUrl();
+  if (!baseUrl) throw new Error("Missing baseUrl");
+  const anonKey = getInsforgeAnonKey();
+  return createClient({
+    baseUrl,
+    anonKey: anonKey || undefined,
   });
 }

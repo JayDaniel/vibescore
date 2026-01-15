@@ -48,6 +48,16 @@ test("main wires InsForge hosted auth routes", () => {
   assert.match(src, /afterSignUpUrl/);
 });
 
+test("insforge auth client wrapper uses base url and anon key", () => {
+  const wrapper = read("dashboard/src/lib/insforge-auth-client.js");
+  assert.match(wrapper, /createInsforgeAuthClient/);
+
+  const src = read("dashboard/src/lib/insforge-client.js");
+  assert.match(src, /createInsforgeAuthClient/);
+  assert.match(src, /getInsforgeBaseUrl/);
+  assert.match(src, /getInsforgeAnonKey/);
+});
+
 test("App routes LandingPage when signed out", () => {
   const src = read("dashboard/src/App.jsx");
   assert.match(src, /!signedIn\s*&&\s*!mockEnabled/);
