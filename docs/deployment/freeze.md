@@ -1,5 +1,24 @@
 # Deployment Freeze Records
 
+## Template: CI/CD Release Record
+- Date:
+- Scope:
+- Change ID:
+- CI workflow run:
+- Release workflow run:
+- Preflight: `node scripts/acceptance/model-identity-alias-table.cjs` (pass)
+- npm publish: version + result (published or skipped)
+- Vercel check: name + conclusion (if dashboard changed)
+- MCP deploy: confirmation + evidence (if functions changed)
+- Freeze artifact:
+- Cold regression step:
+- Synthetic acceptance:
+
+## Runbook: Insforge MCP Deploy (Functions)
+1. Ensure `insforge-functions/` matches `insforge-src/functions/` (CI `build:insforge:check` or `npm run build:insforge`).
+2. Use Insforge MCP deployment flow to deploy updated functions.
+3. Record MCP output + confirmation in the release record above.
+
 ## 2026-01-12-add-public-dashboard-view
 - Scope: dashboard public view share link (issue/revoke/status) + read-only usage access
 - Change ID: `2026-01-12-add-public-dashboard-view`

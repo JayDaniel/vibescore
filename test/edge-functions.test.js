@@ -1,6 +1,10 @@
 const assert = require('node:assert/strict');
-const { createHash } = require('node:crypto');
+const { createHash, webcrypto } = require('node:crypto');
 const { test, beforeEach, afterEach } = require('node:test');
+
+if (!globalThis.crypto) {
+  globalThis.crypto = webcrypto;
+}
 
 const SERVICE_ROLE_KEY = 'srk_test_123';
 const ANON_KEY = 'anon_test_123';
@@ -1190,6 +1194,7 @@ test('vibeusage-usage-daily uses hourly when rollup disabled', () =>
     const userJwt = 'user_jwt_test';
     const filters = [];
 
+    const pricingFilters = [];
     globalThis.createClient = (args) => {
       if (args && args.edgeFunctionToken === userJwt) {
         return {
@@ -3843,6 +3848,121 @@ test('vibeusage usage aggregates stay consistent across summary daily breakdown'
   assertTokenTotalsEqual(summaryTotals, dailyTotals, 'daily');
   assertTokenTotalsEqual(summaryTotals, breakdownTotals, 'model breakdown');
 });
+
+test('vibeusage usage costs stay consistent across daily summary and model breakdown when models overlap sources', { concurrency: 1 }, () =>
+  withRollupDisabled(async () => {
+    const summaryFn = require('../insforge-functions/vibeusage-usage-summary');
+    const dailyFn = require('../insforge-functions/vibeusage-usage-daily');
+    const breakdownFn = require('../insforge-functions/vibeusage-usage-model-breakdown');
+
+    const userId = '77777777-7777-7777-7777-777777777777';
+    const userJwt = 'user_jwt_test';
+
+    const hourlyRows = [
+      {
+        hour_start: '2025-12-20T01:00:00.000Z',
+        source: 'codex',
+        model: 'gpt-5.2-codex',
+        total_tokens: 3000000,
+        input_tokens: 1000000,
+        cached_input_tokens: 0,
+        output_tokens: 2000000,
+        reasoning_output_tokens: 0
+      },
+      {
+        hour_start: '2025-12-20T02:00:00.000Z',
+        source: 'opencode',
+        model: 'gpt-5.2-codex',
+        total_tokens: 1100000,
+        input_tokens: 1000000,
+        cached_input_tokens: 0,
+        output_tokens: 100000,
+        reasoning_output_tokens: 500000
+      }
+    ];
+
+    const pricingProfile = {
+      model: 'gpt-5.2-codex',
+      source: 'openrouter',
+      effective_from: '2025-12-01',
+      input_rate_micro_per_million: 1000000,
+      cached_input_rate_micro_per_million: 0,
+      output_rate_micro_per_million: 1000000,
+      reasoning_output_rate_micro_per_million: 1000000
+    };
+
+    const pricingFilters = [];
+    globalThis.createClient = (args) => {
+      if (args && args.edgeFunctionToken === userJwt) {
+        return {
+          auth: {
+            getCurrentUser: async () => ({ data: { user: { id: userId } }, error: null })
+          },
+          database: {
+            from: (table) => {
+              if (table === 'vibescore_tracker_hourly') {
+                const query = createQueryMock({ rows: hourlyRows });
+                return { select: () => query };
+              }
+              if (table === 'vibescore_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              if (table === 'vibescore_pricing_profiles') {
+                return createQueryMock({ rows: [pricingProfile], onFilter: (entry) => pricingFilters.push(entry) });
+              }
+              if (table === 'vibescore_pricing_model_aliases') {
+                return createQueryMock({ rows: [] });
+              }
+              throw new Error(`Unexpected table ${table}`);
+            }
+          }
+        };
+      }
+      throw new Error(`Unexpected createClient args: ${JSON.stringify(args)}`);
+    };
+
+    const headers = { Authorization: `Bearer ${userJwt}` };
+    const summaryReq = new Request(
+      'http://localhost/functions/vibeusage-usage-summary?from=2025-12-20&to=2025-12-20',
+      { method: 'GET', headers }
+    );
+    const dailyReq = new Request(
+      'http://localhost/functions/vibeusage-usage-daily?from=2025-12-20&to=2025-12-20',
+      { method: 'GET', headers }
+    );
+    const breakdownReq = new Request(
+      'http://localhost/functions/vibeusage-usage-model-breakdown?from=2025-12-20&to=2025-12-20',
+      { method: 'GET', headers }
+    );
+
+    const summaryRes = await summaryFn(summaryReq);
+    const dailyRes = await dailyFn(dailyReq);
+    const breakdownRes = await breakdownFn(breakdownReq);
+
+    assert.equal(summaryRes.status, 200);
+    assert.equal(dailyRes.status, 200);
+    assert.equal(breakdownRes.status, 200);
+
+    const summaryBody = await summaryRes.json();
+    const dailyBody = await dailyRes.json();
+    const breakdownBody = await breakdownRes.json();
+
+    const expected = '4.600000';
+    assert.ok(
+      pricingFilters.some((entry) =>
+        entry.op === 'or' && String(entry.value || '').includes('model.eq.gpt-5.2-codex')
+      ),
+      'expected pricing profile lookup for gpt-5.2-codex'
+    );
+    const breakdownCost = breakdownBody.sources
+      .map((entry) => Number(entry?.totals?.total_cost_usd || 0))
+      .reduce((sum, value) => sum + value, 0)
+      .toFixed(6);
+
+    assert.equal(dailyBody.summary?.totals?.total_cost_usd, expected);
+    assert.equal(summaryBody.totals?.total_cost_usd, expected);
+    assert.equal(breakdownCost, expected);
+  }));
 
 const TOKEN_TOTAL_FIELDS = [
   'total_tokens',

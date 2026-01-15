@@ -139,3 +139,14 @@ export function subscribeAuthStorage(handler) {
   window.addEventListener(AUTH_EVENT_NAME, onChange);
   return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);
 }
+
+export function subscribeSessionExpired(handler) {
+  if (typeof window === "undefined" || !window.addEventListener) {
+    return () => {};
+  }
+  const onChange = () => {
+    handler(loadSessionExpired());
+  };
+  window.addEventListener(AUTH_EVENT_NAME, onChange);
+  return () => window.removeEventListener(AUTH_EVENT_NAME, onChange);
+}

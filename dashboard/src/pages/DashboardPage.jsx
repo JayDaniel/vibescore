@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 
-import { buildAuthUrl } from "../lib/auth-url.js";
 import { copy } from "../lib/copy.js";
 import { getRangeForPeriod } from "../lib/date-range.js";
 import { getDetailsSortColumns, sortDailyRows } from "../lib/daily.js";
@@ -112,6 +111,8 @@ export function DashboardPage({
   signOut,
   publicMode = false,
   publicToken = null,
+  signInUrl = "/sign-in",
+  signUpUrl = "/sign-up",
 }) {
   const [booted, setBooted] = useState(false);
   const [costModalOpen, setCostModalOpen] = useState(false);
@@ -140,7 +141,10 @@ export function DashboardPage({
   const [installCopied, setInstallCopied] = useState(false);
   const [sessionExpiredCopied, setSessionExpiredCopied] = useState(false);
   const mockEnabled = isMockEnabled();
-  const accessToken = publicMode ? publicToken : auth?.accessToken || null;
+  const authAccessToken = signedIn
+    ? auth?.getAccessToken ?? auth?.accessToken ?? null
+    : null;
+  const accessToken = publicMode ? publicToken : authAccessToken;
   const accessEnabled = signedIn || mockEnabled || publicMode;
   useEffect(() => {
     const t = window.setTimeout(() => setBooted(true), 900);
@@ -159,7 +163,7 @@ export function DashboardPage({
     let active = true;
     setLinkCodeLoading(true);
     setLinkCodeError(null);
-    requestInstallLinkCode({ baseUrl, accessToken: auth?.accessToken || null })
+    requestInstallLinkCode({ baseUrl, accessToken: authAccessToken })
       .then((data) => {
         if (!active) return;
         setLinkCode(typeof data?.link_code === "string" ? data.link_code : null);
@@ -185,7 +189,7 @@ export function DashboardPage({
     mockEnabled,
     signedIn,
     publicMode,
-    auth?.accessToken,
+    authAccessToken,
     linkCodeRefreshToken,
   ]);
 
@@ -200,7 +204,7 @@ export function DashboardPage({
     }
     let active = true;
     setPublicViewLoading(true);
-    getPublicViewStatus({ baseUrl, accessToken: auth?.accessToken || null })
+    getPublicViewStatus({ baseUrl, accessToken: authAccessToken })
       .then((data) => {
         if (!active) return;
         const enabled = Boolean(data?.enabled);
@@ -221,7 +225,7 @@ export function DashboardPage({
     return () => {
       active = false;
     };
-  }, [baseUrl, mockEnabled, signedIn, publicMode, auth?.accessToken]);
+  }, [baseUrl, mockEnabled, signedIn, publicMode, authAccessToken]);
 
   useEffect(() => {
     if (!publicMode) {
@@ -1023,7 +1027,7 @@ export function DashboardPage({
       try {
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1046,7 +1050,7 @@ export function DashboardPage({
     setPublicViewCopied(true);
     window.setTimeout(() => setPublicViewCopied(false), 2000);
   }, [
-    auth?.accessToken,
+    authAccessToken,
     baseUrl,
     publicViewActionLoading,
     publicViewEnabled,
@@ -1061,14 +1065,14 @@ export function DashboardPage({
       if (publicViewEnabled) {
         await revokePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         setPublicViewEnabled(false);
         setPublicViewToken(null);
       } else {
         const data = await issuePublicViewToken({
           baseUrl,
-          accessToken: auth?.accessToken || null,
+          accessToken: authAccessToken,
         });
         const token =
           typeof data?.share_token === "string" ? data.share_token : null;
@@ -1081,20 +1085,7 @@ export function DashboardPage({
     } finally {
       setPublicViewActionLoading(false);
     }
-  }, [auth?.accessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
-
-  const redirectUrl = useMemo(
-    () => `${window.location.origin}/auth/callback`,
-    []
-  );
-  const signInUrl = useMemo(
-    () => buildAuthUrl({ baseUrl, path: "/auth/sign-in", redirectUrl }),
-    [baseUrl, redirectUrl]
-  );
-  const signUpUrl = useMemo(
-    () => buildAuthUrl({ baseUrl, path: "/auth/sign-up", redirectUrl }),
-    [baseUrl, redirectUrl]
-  );
+  }, [authAccessToken, baseUrl, publicViewActionLoading, publicViewEnabled]);
 
   const dailyEmptyTemplate = useMemo(
     () => copy("dashboard.daily.empty", { cmd: "{{cmd}}" }),
@@ -1106,9 +1097,9 @@ export function DashboardPage({
     return [parts[0], parts.slice(1).join("{{cmd}}")];
   }, [dailyEmptyTemplate]);
 
-  const headerStatus = (
-    <BackendStatus baseUrl={baseUrl} accessToken={accessToken} />
-  );
+  const headerStatus = signedIn ? (
+    <BackendStatus baseUrl={baseUrl} accessToken={authAccessToken} />
+  ) : null;
 
   const headerRight = (
     <div className="flex items-center gap-4">
@@ -1140,6 +1131,7 @@ export function DashboardPage({
     return <BootScreen onSkip={() => setBooted(true)} />;
   }
 
+  const showExpiredGate = sessionExpired && !publicMode;
   const requireAuthGate = !signedIn && !mockEnabled && !sessionExpired;
   const showAuthGate = requireAuthGate && !publicMode;
 
@@ -1170,7 +1162,7 @@ export function DashboardPage({
             </AsciiBox>
           </div>
         ) : null}
-        {sessionExpired && !publicMode ? (
+        {showExpiredGate ? (
           <div className="mb-6">
             <AsciiBox
               title={copy("dashboard.session_expired.title")}
@@ -1203,8 +1195,7 @@ export function DashboardPage({
               </div>
             </AsciiBox>
           </div>
-        ) : null}
-        {showAuthGate ? (
+        ) : showAuthGate ? (
           <div className="flex items-center justify-center">
             <AsciiBox
               title={copy("dashboard.auth_required.title")}

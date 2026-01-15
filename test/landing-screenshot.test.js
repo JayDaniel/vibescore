@@ -66,7 +66,7 @@ function parseCsv(raw) {
 test("LandingPage includes screenshot image and copy alt key", () => {
   const src = read("dashboard/src/pages/LandingPage.jsx");
   assert.match(src, /landing\.screenshot\.alt/);
-  assert.match(src, /vibe-score-link\.png/);
+  assert.match(src, /landing-dashboard\.jpg/);
 });
 
 test("copy registry includes landing screenshot alt", () => {

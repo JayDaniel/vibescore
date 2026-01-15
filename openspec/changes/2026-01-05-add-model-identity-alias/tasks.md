@@ -16,3 +16,8 @@
 ## 4. Tests & Verification
 - [x] Add unit/integration tests for alias mapping and canonical filtering.
 - [x] Run regression tests and record results.
+
+## 5. Database
+- [x] Add `vibescore_model_aliases` table migration SQL.
+- [x] Apply migration in InsForge.
+- [x] Verify table existence via acceptance script.

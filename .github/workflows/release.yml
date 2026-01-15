@@ -1,0 +1,171 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      functions: ${{ steps.changes.outputs.functions }}
+      dashboard: ${{ steps.changes.outputs.dashboard }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect changed areas
+        id: changes
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEFORE="${{ github.event.before }}"
+          AFTER="${{ github.sha }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            BEFORE="${AFTER}^"
+          fi
+          git diff --name-only "$BEFORE" "$AFTER" > /tmp/changed.txt
+          if grep -E -q '^(insforge-src/functions/|insforge-functions/)' /tmp/changed.txt; then
+            echo "functions=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "functions=false" >> "$GITHUB_OUTPUT"
+          fi
+          if grep -E -q '^dashboard/' /tmp/changed.txt; then
+            echo "dashboard=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "dashboard=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  preflight:
+    runs-on: ubuntu-latest
+    needs: changes
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Verify model alias table exists
+        env:
+          INSFORGE_BASE_URL: ${{ secrets.INSFORGE_BASE_URL }}
+          INSFORGE_ANON_KEY: ${{ secrets.INSFORGE_ANON_KEY }}
+          INSFORGE_SERVICE_ROLE_KEY: ${{ secrets.INSFORGE_SERVICE_ROLE_KEY }}
+          INSFORGE_API_KEY: ${{ secrets.INSFORGE_API_KEY }}
+        run: node scripts/acceptance/model-identity-alias-table.cjs
+
+  npm-publish:
+    runs-on: ubuntu-latest
+    needs: preflight
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "18"
+          registry-url: "https://registry.npmjs.org"
+          cache: "npm"
+      - name: Install dependencies
+        run: npm ci
+      - name: Read package metadata
+        id: package
+        run: |
+          node -e "const pkg=require('./package.json'); console.log('name='+pkg.name); console.log('version='+pkg.version);" >> "$GITHUB_OUTPUT"
+      - name: Check npm registry for version
+        id: npm
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.package.outputs.name }}"
+          VERSION="${{ steps.package.outputs.version }}"
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Publish to npm
+        if: steps.npm.outputs.exists != 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish
+      - name: Skip publish (version exists)
+        if: steps.npm.outputs.exists == 'true'
+        run: echo "Version already published; skipping."
+
+  vercel-gate:
+    runs-on: ubuntu-latest
+    needs: [changes, preflight]
+    if: needs.changes.outputs.dashboard == 'true'
+    timeout-minutes: 25
+    permissions:
+      checks: read
+      contents: read
+    env:
+      VERCEL_CHECK_NAME: ${{ vars.VERCEL_CHECK_NAME || 'Vercel' }}
+      VERCEL_TIMEOUT_MINUTES: "20"
+      VERCEL_POLL_SECONDS: "20"
+    steps:
+      - name: Wait for Vercel deployment check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const targetName = process.env.VERCEL_CHECK_NAME;
+            const timeoutMinutes = Number(process.env.VERCEL_TIMEOUT_MINUTES || 20);
+            const pollSeconds = Number(process.env.VERCEL_POLL_SECONDS || 20);
+            const deadline = Date.now() + timeoutMinutes * 60 * 1000;
+            const { owner, repo } = context.repo;
+            const ref = context.sha;
+
+            function pickLatest(checks) {
+              return checks.sort((a, b) => {
+                const aTime = new Date(a.started_at || a.created_at || 0).getTime();
+                const bTime = new Date(b.started_at || b.created_at || 0).getTime();
+                return bTime - aTime;
+              })[0];
+            }
+
+            while (Date.now() < deadline) {
+              const response = await github.rest.checks.listForRef({ owner, repo, ref });
+              const checks = response.data.check_runs.filter((check) =>
+                check.name && check.name.includes(targetName)
+              );
+
+              if (checks.length === 0) {
+                core.info(`Waiting for Vercel check containing "${targetName}"...`);
+              } else {
+                const latest = pickLatest(checks);
+                core.info(`Latest Vercel check: ${latest.name} (${latest.status}/${latest.conclusion || 'pending'})`);
+                if (latest.conclusion === 'success') {
+                  core.info('Vercel check succeeded.');
+                  return;
+                }
+                if (['failure', 'cancelled', 'timed_out', 'action_required'].includes(latest.conclusion)) {
+                  throw new Error(`Vercel check ${latest.name} concluded with ${latest.conclusion}`);
+                }
+              }
+
+              await new Promise((resolve) => setTimeout(resolve, pollSeconds * 1000));
+            }
+
+            throw new Error(`Timed out waiting for Vercel check containing "${targetName}".`);
+
+  mcp-confirmation:
+    runs-on: ubuntu-latest
+    needs: [changes, preflight]
+    if: needs.changes.outputs.functions == 'true'
+    timeout-minutes: 240
+    environment:
+      name: insforge-mcp
+    steps:
+      - name: MCP deploy confirmation
+        run: |
+          echo "Functions changed. Deploy via Insforge MCP, then approve this environment to continue."

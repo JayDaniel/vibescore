@@ -1617,7 +1617,7 @@ var require_vibescore_usage_daily = __commonJS({
         if (!hasModelParam && pricingBuckets) {
           const usageKey = normalizeUsageModelKey(normalizedModel) || DEFAULT_MODEL;
           const dateKey = extractDateKey(row?.hour_start || row?.day) || to;
-          const bucketKey = `${usageKey}${PRICING_BUCKET_SEP}${dateKey}`;
+          const bucketKey = `${sourceKey}${PRICING_BUCKET_SEP}${usageKey}${PRICING_BUCKET_SEP}${dateKey}`;
           const bucket = pricingBuckets.get(bucketKey) || createTotals();
           addRowTotals(bucket, row);
           pricingBuckets.set(bucketKey, bucket);
@@ -1791,9 +1791,19 @@ var require_vibescore_usage_daily = __commonJS({
             return profile;
           };
           for (const [bucketKey, bucketTotals] of pricingBuckets.entries()) {
-            const sepIndex = bucketKey.indexOf(PRICING_BUCKET_SEP);
-            const usageKey = sepIndex === -1 ? bucketKey : bucketKey.slice(0, sepIndex);
-            const dateKey = sepIndex === -1 ? to : bucketKey.slice(sepIndex + PRICING_BUCKET_SEP.length);
+            const parts = bucketKey.split(PRICING_BUCKET_SEP);
+            let usageKey = null;
+            let dateKey = null;
+            if (parts.length >= 3) {
+              usageKey = parts[1];
+              dateKey = parts[2];
+            } else if (parts.length === 2) {
+              usageKey = parts[0];
+              dateKey = parts[1];
+            } else {
+              usageKey = bucketKey;
+            }
+            if (!dateKey) dateKey = to;
             const identity = resolveIdentityAtDate({
               usageKey,
               dateKey,

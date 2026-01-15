@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - name: Install root dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Validate guardrails
+        run: npm run validate:guardrails
+      - name: Guardrail tests
+        run: node --test test/architecture-guardrails.test.js
+      - name: Check InsForge build outputs
+        run: npm run build:insforge:check
+      - name: Install dashboard dependencies
+        run: npm --prefix dashboard ci
+      - name: Build dashboard
+        run: npm --prefix dashboard run build
