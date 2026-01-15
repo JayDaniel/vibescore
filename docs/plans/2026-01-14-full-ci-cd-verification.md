@@ -6,6 +6,7 @@
 ## Tests Run
 - 2026-01-15: `npm test` (initial run)
 - 2026-01-15: `npm test` (after crypto polyfill for Node 18 CI)
+- 2026-01-15: `npm test` (post Node 20 CI update)
 - 2026-01-15: `npm run validate:guardrails`
 - 2026-01-15: `npm run build:insforge:check`
 - 2026-01-15: `npm --prefix dashboard ci`
