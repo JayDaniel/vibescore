@@ -50,7 +50,7 @@
       "type": "group",
       "x": 20,
       "y": 8080,
-      "width": 2240,
+      "width": 2560,
       "height": 1832,
       "label": "src"
     },
@@ -3946,6 +3946,39 @@
         "layerIndex": 4
       },
       "externalService": "Anthropic"
+    },
+    {
+      "id": "842e550a29afa7ed",
+      "type": "text",
+      "x": 2260,
+      "y": 8160,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "text": "**doctor (proposed)**\n`src/commands/doctor.js`\n\nGeneral module.\n\nStatus: Proposed\nNotes: CLI doctor command entry.",
+      "meta": {
+        "relPath": "src/commands/doctor.js",
+        "group": "misc",
+        "side": "right",
+        "layerIndex": 7
+      }
+    },
+    {
+      "id": "1bd6338e9548e7d7",
+      "type": "text",
+      "x": 2260,
+      "y": 8520,
+      "width": 280,
+      "height": 232,
+      "color": "2",
+      "text": "**doctor (proposed)**\n`src/lib/doctor.js`\n\nShared utilities.\n\nStatus: Proposed\nNotes: Doctor checks + JSON output.",
+      "meta": {
+        "relPath": "src/lib/doctor.js",
+        "category": "utils",
+        "group": "utils",
+        "side": "right",
+        "layerIndex": 5
+      }
     }
   ],
   "edges": [
@@ -4298,6 +4331,16 @@
       "fromSide": "bottom",
       "toNode": "undefined_use-backend-status_f6637b78",
       "toSide": "top"
+    },
+    {
+      "id": "1789e014372f77ab",
+      "fromNode": "undefined_cli_16331b99",
+      "toNode": "842e550a29afa7ed"
+    },
+    {
+      "id": "5f93fcb0eb4a3404",
+      "fromNode": "842e550a29afa7ed",
+      "toNode": "1bd6338e9548e7d7"
     }
   ]
 }
