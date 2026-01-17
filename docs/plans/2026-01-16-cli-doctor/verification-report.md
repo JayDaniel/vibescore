@@ -10,7 +10,7 @@
 - PASS
 
 ## Evidence
-- `28` tests passed, `0` failed
+- `29` tests passed, `0` failed
 
 ## Remaining Risks
 - 兼容环境变量移除可能影响旧用户配置

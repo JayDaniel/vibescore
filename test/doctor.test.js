@@ -190,6 +190,41 @@ test('doctor supports CLI base-url override', async () => {
   }
 });
 
+test('doctor tolerates null config.json payload', async () => {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'vibeusage-doctor-'));
+  const prevHome = process.env.HOME;
+  const prevFetch = globalThis.fetch;
+  const prevWrite = process.stdout.write;
+  const prevErr = process.stderr.write;
+  const prevExit = process.exitCode;
+
+  try {
+    process.env.HOME = tmp;
+    const trackerDir = path.join(tmp, '.vibeusage', 'tracker');
+    await fs.mkdir(trackerDir, { recursive: true });
+    await fs.writeFile(path.join(trackerDir, 'config.json'), 'null', 'utf8');
+    globalThis.fetch = async () => ({ status: 200 });
+    const outCapture = createWriteCapture();
+    const errCapture = createWriteCapture();
+    process.stdout.write = outCapture.write;
+    process.stderr.write = errCapture.write;
+    process.exitCode = 0;
+
+    await cmdDoctor(['--json']);
+
+    const payload = JSON.parse(outCapture.read());
+    assert.equal(payload.version, 1);
+  } finally {
+    process.stdout.write = prevWrite;
+    process.stderr.write = prevErr;
+    if (prevHome === undefined) delete process.env.HOME;
+    else process.env.HOME = prevHome;
+    globalThis.fetch = prevFetch;
+    process.exitCode = prevExit;
+    await fs.rm(tmp, { recursive: true, force: true });
+  }
+});
+
 function createWriteCapture() {
   let out = '';
   return {

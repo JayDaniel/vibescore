@@ -14,7 +14,7 @@ async function cmdDoctor(argv = []) {
   const configPath = path.join(trackerDir, 'config.json');
 
   const configStatus = await readJsonStrict(configPath);
-  const config = configStatus.status === 'ok' ? configStatus.value : {};
+  const config = configStatus.status === 'ok' && isPlainObject(configStatus.value) ? configStatus.value : {};
   const runtime = resolveRuntimeConfig({ cli: { baseUrl: opts.baseUrl }, config, env: process.env });
   const diagnostics = await collectTrackerDiagnostics({ home });
   const cliPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
@@ -82,6 +82,10 @@ function formatCheckLine(check = {}) {
   const status = String(check.status || 'unknown').toUpperCase();
   const detail = check.detail ? ` - ${check.detail}` : '';
   return `- [${status}] ${check.id || 'unknown'}${detail}`;
+}
+
+function isPlainObject(value) {
+  return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
 module.exports = { cmdDoctor };
